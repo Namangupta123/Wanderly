@@ -1,0 +1,1 @@
+# To Extract details from Query.

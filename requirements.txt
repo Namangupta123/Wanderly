@@ -1,0 +1,4 @@
+Streamlit
+SerpAPI
+Langchain
+mistralAI
