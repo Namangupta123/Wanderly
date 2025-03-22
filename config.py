@@ -1,7 +1,8 @@
 import os
-from dotenv import load_dotenv
 import streamlit as st
-load_dotenv()
+
+# from dotenv import load_dotenv
+# load_dotenv()
 
 # MISTRAL_ITINERARY_KEY = os.getenv("MISTRAL_ITINERARY_KEY")
 # MISTRAL_TRANSPORT_KEY = os.getenv("MISTRAL_TRANSPORT_KEY")
