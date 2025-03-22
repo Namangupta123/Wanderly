@@ -1,7 +1,6 @@
 Streamlit
 SerpAPI
 Langchain
-ChatMistralAI
 fpdf
 langchain_mistralai
 pip
