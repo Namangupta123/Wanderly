@@ -1,12 +1,12 @@
-import os
-import requests
-import json
 from datetime import datetime
-from config import SERPAPI_API_KEY
+from langchain.chains import LLMChain
+from langchain_mistralai import ChatMistralAI
+from langchain.prompts import PromptTemplate
+from config import MISTRAL_TRANSPORT_KEY
 
 def get_train_options(departure_city, destination, departure_date, budget):
     """
-    Get train options for the specified route and date within budget.
+    Get train options for the specified route and date within budget using MistralAI.
     
     Args:
         departure_city (str): The departure city
@@ -18,60 +18,72 @@ def get_train_options(departure_city, destination, departure_date, budget):
         list: A list of train options with details
     """
     try:
-        # Format the date for API request
+        llm = ChatMistralAI(
+            model="mistral-large-latest",
+            api_key=MISTRAL_TRANSPORT_KEY
+        )
+        
+        template = """
+        You are a travel expert providing realistic train options for a journey.
+        
+        Details:
+        - Departure: {departure_city}
+        - Destination: {destination}
+        - Date: {departure_date}
+        - Maximum Budget: ${budget} USD
+
+        Provide 5 realistic train options with the following details for each:
+        - Train company/operator
+        - Departure time
+        - Arrival time
+        - Journey duration
+        - Price (within budget)
+        - Class (Economy/Business/First)
+        - Number of transfers
+
+        Format the response as a JSON array of train objects. Each object should have:
+        - company: string
+        - departure_time: string (HH:MM format)
+        - arrival_time: string (HH:MM format)
+        - duration: string (e.g., "3h 15m")
+        - price: string (e.g., "$120")
+        - class: string
+        - transfers: number
+
+        Only return the JSON array, nothing else.
+        Ensure all prices are within the specified budget.
+        Use realistic train operators that service these locations.
+        Consider the actual train journey duration between these cities.
+        """
+        
+        prompt = PromptTemplate(
+            input_variables=["departure_city", "destination", "departure_date", "budget"],
+            template=template
+        )
+        
+        chain = LLMChain(llm=llm, prompt=prompt)
+        
         formatted_date = departure_date.strftime("%Y-%m-%d")
         
-        # Prepare the SerpAPI request
-        serpapi_key = SERPAPI_API_KEY
-        if not serpapi_key:
-            raise ValueError("SerpAPI key is not set")
+        response = chain.run({
+            "departure_city": departure_city,
+            "destination": destination,
+            "departure_date": formatted_date,
+            "budget": budget
+        })
         
-        # Construct the search query for trains
-        # Note: SerpAPI doesn't have a direct train search engine, so we'll use a general search
-        params = {
-            "engine": "google",
-            "q": f"train from {departure_city} to {destination} on {formatted_date}",
-            "api_key": serpapi_key
-        }
-        
-        # Make the API request
-        response = requests.get("https://serpapi.com/search", params=params)
-        
-        if response.status_code != 200:
-            raise Exception(f"API request failed with status code {response.status_code}")
-        
-        # In a real application, we would parse the actual response from SerpAPI
-        # For demonstration purposes, we'll create sample train data
-        
-        # Generate sample train data
-        train_options = []
-        sample_train_companies = ["Amtrak", "Eurostar", "Deutsche Bahn", "SNCF", "Trenitalia"]
-        sample_times = ["07:30", "09:45", "12:15", "14:50", "17:30"]
-        sample_durations = ["3h 15m", "4h 30m", "5h 45m", "6h 20m", "7h 10m"]
-        sample_prices = [round(budget * 0.15), round(budget * 0.2), round(budget * 0.25), round(budget * 0.3), round(budget * 0.35)]
-        sample_classes = ["Economy", "Business", "First Class", "Economy", "Business"]
-        
-        for i in range(5):
-            train_options.append({
-                "company": sample_train_companies[i % len(sample_train_companies)],
-                "departure_time": sample_times[i],
-                "arrival_time": "Varies",
-                "duration": sample_durations[i],
-                "price": f"${sample_prices[i]}",
-                "class": sample_classes[i],
-                "transfers": i % 3  # 0, 1, or 2 transfers
-            })
+        import json
+        train_options = json.loads(response)
         
         return train_options
         
     except Exception as e:
         print(f"Error fetching train options: {str(e)}")
-        # Return some fallback options in case of error
         return [
             {
                 "company": "Sample Train Company",
-                "departure_time": "09:00 AM",
-                "arrival_time": "1:00 PM",
+                "departure_time": "09:00",
+                "arrival_time": "13:00",
                 "duration": "4h 00m",
                 "price": f"${round(budget * 0.25)}",
                 "class": "Economy",

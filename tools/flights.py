@@ -1,12 +1,12 @@
-import os
-import requests
-import json
 from datetime import datetime
-from config import SERPAPI_API_KEY
+from langchain.chains import LLMChain
+from langchain_mistralai import ChatMistralAI
+from langchain.prompts import PromptTemplate
+from config import MISTRAL_TRANSPORT_KEY
 
 def get_flight_options(departure_city, destination, departure_date, budget):
     """
-    Get flight options for the specified route and date within budget.
+    Get flight options for the specified route and date within budget using MistralAI.
     
     Args:
         departure_city (str): The departure city
@@ -18,73 +18,69 @@ def get_flight_options(departure_city, destination, departure_date, budget):
         list: A list of flight options with details
     """
     try:
-        # Format the date for API request
+        llm = ChatMistralAI(
+            model="mistral-large-latest",
+            api_key=MISTRAL_TRANSPORT_KEY
+        )
+        
+        template = """
+        You are a travel expert providing realistic flight options for a journey.
+        
+        Details:
+        - Departure: {departure_city}
+        - Destination: {destination}
+        - Date: {departure_date}
+        - Maximum Budget: ${budget} USD
+
+        Provide 5 realistic flight options with the following details for each:
+        - Airline name
+        - Departure time
+        - Arrival time
+        - Flight duration
+        - Price (within budget)
+        - Number of stops
+
+        Format the response as a JSON array of flight objects. Each object should have:
+        - airline: string
+        - departure_time: string (HH:MM format)
+        - arrival_time: string (HH:MM format)
+        - duration: string (e.g., "2h 30m")
+        - price: string (e.g., "$450")
+        - stops: string ("Nonstop" or "X stop(s)")
+
+        Only return the JSON array, nothing else.
+        Ensure all prices are within the specified budget.
+        Use realistic airlines that operate in these locations.
+        Consider the actual flight duration between these cities.
+        """
+        
+        prompt = PromptTemplate(
+            input_variables=["departure_city", "destination", "departure_date", "budget"],
+            template=template
+        )
+        
+        chain = LLMChain(llm=llm, prompt=prompt)
         formatted_date = departure_date.strftime("%Y-%m-%d")
         
-        # Prepare the SerpAPI request
-        serpapi_key = SERPAPI_API_KEY
-        if not serpapi_key:
-            raise ValueError("SerpAPI key is not set")
+        response = chain.run({
+            "departure_city": departure_city,
+            "destination": destination,
+            "departure_date": formatted_date,
+            "budget": budget
+        })
         
-        # Construct the search query for flights
-        params = {
-            "engine": "google_flights",
-            "departure_id": departure_city,
-            "arrival_id": destination,
-            "outbound_date": formatted_date,
-            "api_key": serpapi_key
-        }
-        
-        # Make the API request
-        response = requests.get("https://serpapi.com/search", params=params)
-        
-        if response.status_code != 200:
-            raise Exception(f"API request failed with status code {response.status_code}")
-        
-        data = response.json()
-        
-        # Process the flight data
-        flight_options = []
-        
-        # Check if we have actual flight data from the API
-        if "flights" in data and data["flights"]:
-            for flight in data["flights"]:
-                if flight.get("price") and float(flight["price"].replace("$", "").replace(",", "")) <= budget:
-                    flight_options.append({
-                        "airline": flight.get("airline", "Unknown Airline"),
-                        "departure_time": flight.get("departure_time", "Unknown"),
-                        "arrival_time": flight.get("arrival_time", "Unknown"),
-                        "duration": flight.get("duration", "Unknown"),
-                        "price": flight.get("price", "Unknown"),
-                        "stops": flight.get("stops", "Unknown")
-                    })
-        else:
-            # Generate sample flight data if API doesn't return results
-            sample_airlines = ["Delta", "United", "American Airlines", "JetBlue", "Emirates"]
-            sample_times = ["08:00", "10:30", "13:45", "16:20", "19:10"]
-            sample_durations = ["2h 30m", "3h 15m", "4h 45m", "5h 10m", "6h 25m"]
-            sample_prices = [round(budget * 0.2), round(budget * 0.3), round(budget * 0.4), round(budget * 0.5), round(budget * 0.6)]
-            
-            for i in range(5):
-                flight_options.append({
-                    "airline": sample_airlines[i],
-                    "departure_time": sample_times[i],
-                    "arrival_time": "Varies",
-                    "duration": sample_durations[i],
-                    "price": f"${sample_prices[i]}",
-                    "stops": "Nonstop" if i % 2 == 0 else "1 stop"
-                })
+        import json
+        flight_options = json.loads(response)
         
         return flight_options
         
     except Exception as e:
         print(f"Error fetching flight options: {str(e)}")
-        # Return some fallback options in case of error
         return [
             {
                 "airline": "Sample Airline",
-                "departure_time": "10:00 AM",
-                "arrival_time": "2:00 PM",
+                "departure_time": "10:00",
+                "arrival_time": "14:00",
                 "duration": "4h 00m",
                 "price": f"${round(budget * 0.4)}",
                 "stops": "Nonstop"

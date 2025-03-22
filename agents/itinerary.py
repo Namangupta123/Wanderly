@@ -4,7 +4,7 @@ from fpdf import FPDF
 from langchain.chains import LLMChain
 from langchain_mistralai import ChatMistralAI
 from langchain.prompts import PromptTemplate
-from config import MISTRAL_API_KEY
+from config import MISTRAL_ITINERARY_KEY
 
 def generate_itinerary(user_preferences, transportation_options, accommodation_options, food_recommendations, attractions):
     """
@@ -21,13 +21,11 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         dict: A complete itinerary with day-by-day details
     """
     try:
-        # Initialize LangChain with MistralAI
         llm = ChatMistralAI(
             model="mistral-large-latest",
-            api_key=MISTRAL_API_KEY
+            api_key=MISTRAL_ITINERARY_KEY
         )
         
-        # Create a prompt template for itinerary generation
         template = """
         You are a travel expert creating a detailed itinerary for a trip.
         
@@ -35,8 +33,7 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         Travel dates: {start_date} to {end_date} ({num_days} days)
         Budget: ${budget} USD
         Accommodation preference: {accommodation_preference}
-        Food preference: {food_preference}
-        Activity preferences: {activity_preferences}
+        Food preference: {food_preference}`
         Special requirements: {special_requirements}
         Transportation mode: {transportation_mode}
         
@@ -128,7 +125,6 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         
         chain = LLMChain(llm=llm, prompt=prompt)
         
-        # Prepare the input data
         input_data = {
             "departure_city": user_preferences["departure_city"],
             "destination": user_preferences["destination"],
@@ -147,10 +143,8 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
             "attractions": json.dumps(attractions, indent=2)
         }
         
-        # Run the chain
         response = chain.run(input_data)
         
-        # Parse the JSON response
         itinerary = json.loads(response)
         
         return itinerary
@@ -172,15 +166,12 @@ def generate_pdf_itinerary(itinerary):
     pdf = FPDF()
     pdf.add_page()
     
-    # Set font
     pdf.set_font("Arial", "B", 16)
     
-    # Title
     pdf.cell(190, 10, f"Wanderly Itinerary: {itinerary['user_preferences']['departure_city']} to {itinerary['destination']}", 0, 1, "C")
     pdf.cell(190, 10, f"{itinerary['dates']}", 0, 1, "C")
     pdf.ln(10)
     
-    # Summary
     pdf.set_font("Arial", "B", 12)
     pdf.cell(190, 10, "Trip Summary", 0, 1)
     pdf.set_font("Arial", "", 12)
@@ -189,13 +180,11 @@ def generate_pdf_itinerary(itinerary):
     pdf.cell(190, 10, f"Remaining Budget: ${itinerary['remaining_budget']}", 0, 1)
     pdf.ln(10)
     
-    # Day by day itinerary
     for day in itinerary['days']:
         pdf.set_font("Arial", "B", 14)
         pdf.cell(190, 10, f"Day {day['day']} - {day['date']}", 0, 1)
         pdf.ln(5)
         
-        # Transportation (if it's day 1 or last day)
         if day['day'] == 1 or day['day'] == len(itinerary['days']):
             pdf.set_font("Arial", "B", 12)
             pdf.cell(190, 10, "Transportation", 0, 1)
@@ -204,7 +193,6 @@ def generate_pdf_itinerary(itinerary):
                 pdf.cell(190, 10, f"{transport['type']}: {transport['from']} to {transport['to']} - ${transport['cost']}", 0, 1)
             pdf.ln(5)
         
-        # Accommodation
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 10, "Accommodation", 0, 1)
         pdf.set_font("Arial", "", 12)
@@ -212,7 +200,6 @@ def generate_pdf_itinerary(itinerary):
         pdf.multi_cell(190, 10, f"{day['accommodation']['description']}")
         pdf.ln(5)
         
-        # Activities
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 10, "Activities", 0, 1)
         pdf.set_font("Arial", "", 12)
@@ -223,7 +210,6 @@ def generate_pdf_itinerary(itinerary):
             pdf.multi_cell(190, 10, f"{activity['description']} at {activity['location']}")
         pdf.ln(5)
         
-        # Meals
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 10, "Meals", 0, 1)
         pdf.set_font("Arial", "", 12)
@@ -231,7 +217,6 @@ def generate_pdf_itinerary(itinerary):
             pdf.cell(190, 10, f"{meal['type']}: {meal['recommendation']} ({meal['cuisine']}) - ${meal['cost']}", 0, 1)
         pdf.ln(5)
         
-        # Local Transportation
         if day['day'] != 1 and day['day'] != len(itinerary['days']):
             pdf.set_font("Arial", "B", 12)
             pdf.cell(190, 10, "Local Transportation", 0, 1)
@@ -240,7 +225,6 @@ def generate_pdf_itinerary(itinerary):
                 pdf.cell(190, 10, f"{transport['type']}: {transport['from']} to {transport['to']} - ${transport['cost']}", 0, 1)
             pdf.ln(5)
         
-        # Daily total
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 10, f"Daily Total: ${day['daily_total']}", 0, 1)
         pdf.ln(10)
@@ -256,10 +240,8 @@ def generate_fallback_itinerary(user_preferences):
     num_days = user_preferences["num_days"]
     budget = user_preferences["budget"]
     
-    # Calculate daily budget
     daily_budget = budget / num_days
     
-    # Create a basic itinerary structure
     itinerary = {
         "user_preferences": {
             "departure_city": departure_city,
@@ -273,15 +255,12 @@ def generate_fallback_itinerary(user_preferences):
         "remaining_budget": budget
     }
     
-    # Generate day-by-day details
     current_date = start_date
     total_cost = 0
     
     for day in range(1, num_days + 1):
-        # Basic accommodation
         accommodation_cost = daily_budget * 0.4
         
-        # Basic activities (3 per day)
         activities = []
         activity_times = ["Morning", "Afternoon", "Evening"]
         activity_cost_total = 0
@@ -297,7 +276,6 @@ def generate_fallback_itinerary(user_preferences):
                 "cost": round(activity_cost, 2)
             })
         
-        # Basic meals (3 per day)
         meals = []
         meal_types = ["Breakfast", "Lunch", "Dinner"]
         meal_cost_total = 0
@@ -312,9 +290,7 @@ def generate_fallback_itinerary(user_preferences):
                 "cost": round(meal_cost, 2)
             })
         
-        # Transportation
         if day == 1:
-            # First day: Transportation from departure city to destination
             transportation = [{
                 "type": user_preferences["transportation_mode"].title(),
                 "from": departure_city,
@@ -322,7 +298,6 @@ def generate_fallback_itinerary(user_preferences):
                 "cost": round(daily_budget * 0.3, 2)
             }]
         elif day == num_days:
-            # Last day: Transportation from destination back to departure city
             transportation = [{
                 "type": user_preferences["transportation_mode"].title(),
                 "from": destination,
@@ -330,7 +305,6 @@ def generate_fallback_itinerary(user_preferences):
                 "cost": round(daily_budget * 0.3, 2)
             }]
         else:
-            # Local transportation for other days
             transportation = [{
                 "type": "Local Transport",
                 "from": "Accommodation",
@@ -340,11 +314,9 @@ def generate_fallback_itinerary(user_preferences):
         
         transportation_cost = sum(t["cost"] for t in transportation)
         
-        # Calculate daily total
         daily_total = accommodation_cost + activity_cost_total + meal_cost_total + transportation_cost
         total_cost += daily_total
         
-        # Add the day to the itinerary
         itinerary["days"].append({
             "day": day,
             "date": current_date.strftime("%Y-%m-%d"),
@@ -359,10 +331,8 @@ def generate_fallback_itinerary(user_preferences):
             "daily_total": round(daily_total, 2)
         })
         
-        # Move to the next day
         current_date += timedelta(days=1)
     
-    # Update total cost and remaining budget
     itinerary["total_cost"] = round(total_cost, 2)
     itinerary["remaining_budget"] = round(budget - total_cost, 2)
     

@@ -1,4 +1,4 @@
 Streamlit
 SerpAPI
 Langchain
-mistralAI
+ChatMistralAI
