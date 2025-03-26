@@ -1,13 +1,10 @@
 from datetime import datetime
-from langchain.chains import LLMChain
-from langchain_mistralai import ChatMistralAI
-from langchain.schema.runnable import RunnableSequence
-from langchain.prompts import PromptTemplate
-from config import MISTRAL_STAY_KEY
+from serpapi import GoogleSearch
+from config import SERPAPI_KEY
 
 def get_accommodation_options(destination, check_in_date, check_out_date, preference, budget):
     """
-    Get accommodation options using MistralAI for the specified destination and dates within budget.
+    Get accommodation options using SerpAPI for the specified destination and dates within budget.
     
     Args:
         destination (str): The destination city/country
@@ -23,79 +20,54 @@ def get_accommodation_options(destination, check_in_date, check_out_date, prefer
         delta = check_out_date - check_in_date
         num_nights = delta.days
         
-        daily_accommodation_budget = (budget * 0.4) / num_nights
+        if num_nights <= 0:
+            raise ValueError("Check-out date must be after check-in date")
+            
+        daily_accommodation_budget = budget / num_nights
         
-        llm = ChatMistralAI(
-            model="mistral-large-2411",
-            api_key=MISTRAL_STAY_KEY
-        )
+        # Format dates for potential future use in search parameters
+        check_in_str = check_in_date.strftime("%Y-%m-%d")
+        check_out_str = check_out_date.strftime("%Y-%m-%d")
         
-        template = """
-        You are a travel expert providing realistic accommodation options in {destination}.
+        search_query = f"{preference} hotels in {destination}"
         
-        Details:
-        - Check-in: {check_in_date}
-        - Check-out: {check_out_date}
-        - Number of nights: {num_nights}
-        - Preference: {preference} (Budget/Mid-range/Luxury)
-        - Daily budget: ${daily_budget} USD
-
-        Provide 5 realistic accommodation options with the following details for each:
-        - Hotel/accommodation name
-        - Rating (1-5 stars)
-        - Number of reviews
-        - Address
-        - Price per night
-        - Total price for the stay
-        - Available amenities
-        - Brief description
-
-        Format the response as a JSON array of accommodation objects. Each object should have:
-        - name: string
-        - rating: number
-        - reviews: number
-        - address: string
-        - price_per_night: number
-        - total_price: number
-        - amenities: array of strings
-        - description: string
-
-        Only return the JSON array, nothing else.
-        Ensure prices are appropriate for the {preference} category and within budget.
-        Use realistic hotel names and locations in {destination}.
-        Descriptions should highlight key features and location benefits.
-        """
-        
-        prompt = PromptTemplate(
-            input_variables=[
-                "destination", "check_in_date", "check_out_date", "num_nights",
-                "preference", "daily_budget"
-            ],
-            template=template
-        )
-        
-        chain = prompt|llm
-        
-        check_in_formatted = check_in_date.strftime("%Y-%m-%d")
-        check_out_formatted = check_out_date.strftime("%Y-%m-%d")
-        
-        response = chain.invoke({
-            "destination": destination,
-            "check_in_date": check_in_formatted,
-            "check_out_date": check_out_formatted,
-            "num_nights": num_nights,
-            "preference": preference,
-            "daily_budget": daily_accommodation_budget
+        # Corrected SerpAPI parameters
+        search = GoogleSearch({
+            "q": search_query,
+            "engine": "google_hotels",  # Changed to more appropriate engine
+            "check_in_date": check_in_str,
+            "check_out_date": check_out_str,
+            "currency": "USD",
+            "api_key": SERPAPI_KEY,
+            "hl": "en",
+            "gl": "us"
         })
         
-        import json
-        accommodations = json.loads(response)
+        results = search.get_dict()
+        hotels = results.get("properties", [])  # Updated to match google_hotels response structure
         
-        return accommodations
+        accommodations = []
+        for hotel in hotels[:5]:  # Get top 5 hotels
+            # Handle price extraction more robustly
+            price_info = hotel.get("rate_per_night", {})
+            price_str = price_info.get("extracted_lowest", str(daily_accommodation_budget * 0.8))
+            price_per_night = float(price_str.replace("$", "").replace(",", "")) if price_str else daily_accommodation_budget * 0.8
+            total_price = price_per_night * num_nights
+            
+            if total_price <= budget:
+                accommodations.append({
+                    "name": hotel.get("name", f"{preference} Hotel {destination}"),
+                    "rating": float(hotel.get("rating", 4.0)) if hotel.get("rating") else 4.0,
+                    "reviews": int(hotel.get("reviews", 150)) if hotel.get("reviews") else 150,
+                    "address": hotel.get("address", f"123 Main St, {destination}"),
+                    "price_per_night": round(price_per_night, 2),
+                    "total_price": round(total_price, 2),
+                    "amenities": hotel.get("amenities", ["WiFi", "Air conditioning", "TV"]),
+                    "description": hotel.get("description", 
+                                          f"A comfortable {preference.lower()} accommodation in {destination}")
+                })
         
-    except Exception as e:
-        print(f"Error fetching accommodation options: {str(e)}")
-        return [
+        return accommodations if accommodations else [
             {
                 "name": f"{preference} Hotel {destination}",
                 "rating": 4.0,
@@ -103,6 +75,22 @@ def get_accommodation_options(destination, check_in_date, check_out_date, prefer
                 "address": f"123 Main St, {destination}",
                 "price_per_night": round(daily_accommodation_budget * 0.8, 2),
                 "total_price": round(daily_accommodation_budget * 0.8 * num_nights, 2),
+                "amenities": ["WiFi", "Air conditioning", "TV"],
+                "description": f"A comfortable {preference.lower()} accommodation in {destination}"
+            }
+        ]
+        
+    except Exception as e:
+        print(f"Error fetching accommodation options: {str(e)}")
+        daily_accommodation_budget = budget / max(1, (check_out_date - check_in_date).days)
+        return [
+            {
+                "name": f"{preference} Hotel {destination}",
+                "rating": 4.0,
+                "reviews": 150,
+                "address": f"123 Main St, {destination}",
+                "price_per_night": round(daily_accommodation_budget * 0.8, 2),
+                "total_price": round(daily_accommodation_budget * 0.8 * max(1, (check_out_date - check_in_date).days), 2),
                 "amenities": ["WiFi", "Air conditioning", "TV"],
                 "description": f"A comfortable {preference.lower()} accommodation in {destination}"
             }
