@@ -1,6 +1,7 @@
 from datetime import datetime
 from langchain.chains import LLMChain
 from langchain_mistralai import ChatMistralAI
+from langchain.schema.runnable import RunnableSequence
 from langchain.prompts import PromptTemplate
 from config import MISTRAL_PLACES_KEY
 
@@ -18,7 +19,7 @@ def get_attractions(destination, activity_preferences, special_requirements=None
     """
     try:
         llm = ChatMistralAI(
-            model="mistral-large-latest",
+            model="mistral-large-2411",
             api_key=MISTRAL_PLACES_KEY
         )
         
@@ -69,9 +70,9 @@ def get_attractions(destination, activity_preferences, special_requirements=None
             template=template
         )
         
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt|llm
         
-        response = chain.run({
+        response = chain.invoke({
             "destination": destination,
             "activity_preferences": ", ".join(activity_preferences),
             "special_requirements": special_requirements if special_requirements else "None"

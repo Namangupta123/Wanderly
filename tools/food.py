@@ -1,6 +1,7 @@
 from datetime import datetime
 from langchain.chains import LLMChain
 from langchain_mistralai import ChatMistralAI
+from langchain.schema.runnable import RunnableSequence
 from langchain.prompts import PromptTemplate
 from config import MISTRAL_FOOD_KEY
 
@@ -18,8 +19,9 @@ def get_food_recommendations(destination, food_preference, special_requirements=
     """
     try:
         llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=MISTRAL_FOOD_KEY
+            model="mistral-large-2411",
+            api_key=MISTRAL_FOOD_KEY,
+            temperature=0.7
         )
         
         template = """
@@ -68,9 +70,9 @@ def get_food_recommendations(destination, food_preference, special_requirements=
             template=template
         )
         
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt|llm
         
-        response = chain.run({
+        response = chain.invoke({
             "destination": destination,
             "food_preference": food_preference,
             "special_requirements": special_requirements if special_requirements else "None"

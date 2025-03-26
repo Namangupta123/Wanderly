@@ -1,6 +1,7 @@
 from datetime import datetime
 from langchain.chains import LLMChain
 from langchain_mistralai import ChatMistralAI
+from langchain.schema.runnable import RunnableSequence
 from langchain.prompts import PromptTemplate
 from config import MISTRAL_STAY_KEY
 
@@ -25,7 +26,7 @@ def get_accommodation_options(destination, check_in_date, check_out_date, prefer
         daily_accommodation_budget = (budget * 0.4) / num_nights
         
         llm = ChatMistralAI(
-            model="mistral-large-latest",
+            model="mistral-large-2411",
             api_key=MISTRAL_STAY_KEY
         )
         
@@ -73,12 +74,12 @@ def get_accommodation_options(destination, check_in_date, check_out_date, prefer
             template=template
         )
         
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt|llm
         
         check_in_formatted = check_in_date.strftime("%Y-%m-%d")
         check_out_formatted = check_out_date.strftime("%Y-%m-%d")
         
-        response = chain.run({
+        response = chain.invoke({
             "destination": destination,
             "check_in_date": check_in_formatted,
             "check_out_date": check_out_formatted,

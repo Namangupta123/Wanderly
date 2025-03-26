@@ -1,6 +1,7 @@
 from datetime import datetime
 from langchain.chains import LLMChain
 from langchain_mistralai import ChatMistralAI
+from langchain.schema.runnable import RunnableSequence
 from langchain.prompts import PromptTemplate
 from config import MISTRAL_TRANSPORT_KEY
 
@@ -19,8 +20,9 @@ def get_flight_options(departure_city, destination, departure_date, budget):
     """
     try:
         llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=MISTRAL_TRANSPORT_KEY
+            model="mistral-large-2411",
+            api_key=MISTRAL_TRANSPORT_KEY,
+            temperature=0.7
         )
         
         template = """
@@ -59,10 +61,10 @@ def get_flight_options(departure_city, destination, departure_date, budget):
             template=template
         )
         
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt|llm
         formatted_date = departure_date.strftime("%Y-%m-%d")
         
-        response = chain.run({
+        response = chain.invoke({
             "departure_city": departure_city,
             "destination": destination,
             "departure_date": formatted_date,

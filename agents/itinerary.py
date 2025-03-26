@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta
 from fpdf import FPDF
 from langchain.chains import LLMChain
+from langchain.schema.runnable import RunnableSequence
 from langchain_mistralai import ChatMistralAI
 from langchain.prompts import PromptTemplate
 from config import MISTRAL_ITINERARY_KEY
@@ -22,8 +23,9 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
     """
     try:
         llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=MISTRAL_ITINERARY_KEY
+            model="mistral-large-2411",
+            api_key=MISTRAL_ITINERARY_KEY,
+            temperature=0.7
         )
         
         template = """
@@ -116,14 +118,14 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         prompt = PromptTemplate(
             input_variables=[
                 "departure_city", "destination", "start_date", "end_date", "num_days", "budget", 
-                "accommodation_preference", "food_preference", "activity_preferences", 
+                "accommodation_preference", "food_preference",
                 "special_requirements", "transportation_mode", "transportation_options",
                 "accommodation_options", "food_recommendations", "attractions"
             ],
             template=template
         )
         
-        chain = LLMChain(llm=llm, prompt=prompt)
+        chain = prompt|llm
         
         input_data = {
             "departure_city": user_preferences["departure_city"],
@@ -134,7 +136,6 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
             "budget": user_preferences["budget"],
             "accommodation_preference": user_preferences["accommodation"],
             "food_preference": user_preferences["food"],
-            "activity_preferences": ", ".join(user_preferences["activities"]),
             "special_requirements": user_preferences["special_requirements"],
             "transportation_mode": user_preferences["transportation_mode"],
             "transportation_options": json.dumps(transportation_options, indent=2),
@@ -143,7 +144,7 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
             "attractions": json.dumps(attractions, indent=2)
         }
         
-        response = chain.run(input_data)
+        response = chain.invoke(input_data)
         
         itinerary = json.loads(response)
         
