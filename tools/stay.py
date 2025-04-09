@@ -1,22 +1,60 @@
+import requests
 from datetime import datetime
-from serpapi import GoogleSearch
-from config import SERPAPI_KEY
+from config import STAY
+
+class GoogleMapsAPI:
+    def __init__(self):
+        self.api_key = STAY
+        self.base_url = "https://google-map-places-new-v2.p.rapidapi.com/v1/places:autocomplete"
+        self.headers = {
+            "x-rapidapi-key": self.api_key,
+            "x-rapidapi-host": "google-map-places-new-v2.p.rapidapi.com",
+            "Content-Type": "application/json",
+            "X-Goog-FieldMask": "*"
+        }
+
+    def search_hotels(self, query: str, lat: float, lon: float, radius: int = 10000):
+        payload = {
+            "input": query,
+            "locationBias": {
+                "circle": {
+                    "center": {
+                        "latitude": lat,
+                        "longitude": lon
+                    },
+                    "radius": radius
+                }
+            },
+            "includeQueryPredictions": True
+        }
+
+        try:
+            response = requests.post(self.base_url, json=payload, headers=self.headers)
+            response.raise_for_status()
+            return response.json().get('places', [])
+        except Exception as e:
+            print(f"Error fetching hotels: {e}")
+            return []
 
 def get_accommodation_options(destination, check_in_date, check_out_date, preference, budget):
     """
-    Get accommodation options using SerpAPI for the specified destination and dates within budget.
-    
-    Args:
-        destination (str): The destination city/country
-        check_in_date (datetime): The check-in date
-        check_out_date (datetime): The check-out date
-        preference (str): Accommodation preference (Budget, Mid-range, Luxury)
-        budget (float): The maximum budget for accommodation
-        
-    Returns:
-        list: A list of accommodation options with details
+    Get accommodation options using RapidAPI Google Maps for the specified destination and dates within budget.
     """
     try:
+        sample_coordinates = {
+            "New York": (40.7128, -74.0060),
+            "London": (51.5074, -0.1278),
+            "Tokyo": (35.6762, 139.6503),
+            "Paris": (48.8566, 2.3522),
+            "Rome": (41.9028, 12.4964),
+            "Sydney": (-33.8688, 151.2093),
+            "Dubai": (25.2048, 55.2708),
+            "Singapore": (1.3521, 103.8198),
+            "Hong Kong": (22.3193, 114.1694),
+            "Barcelona": (41.3851, 2.1734),
+            "New Delhi": (28.6139, 77.2090)
+        }
+        
         delta = check_out_date - check_in_date
         num_nights = delta.days
         
@@ -24,47 +62,31 @@ def get_accommodation_options(destination, check_in_date, check_out_date, prefer
             raise ValueError("Check-out date must be after check-in date")
             
         daily_accommodation_budget = budget / num_nights
+        lat, lon = sample_coordinates.get(destination.split(',')[0].strip(), (40.7128, -74.0060))
         
-        # Format dates for potential future use in search parameters
-        check_in_str = check_in_date.strftime("%Y-%m-%d")
-        check_out_str = check_out_date.strftime("%Y-%m-%d")
-        
+        maps_api = GoogleMapsAPI()
         search_query = f"{preference} hotels in {destination}"
         
-        # Corrected SerpAPI parameters
-        search = GoogleSearch({
-            "q": search_query,
-            "engine": "google_hotels",  # Changed to more appropriate engine
-            "check_in_date": check_in_str,
-            "check_out_date": check_out_str,
-            "currency": "USD",
-            "api_key": SERPAPI_KEY,
-            "hl": "en",
-            "gl": "us"
-        })
-        
-        results = search.get_dict()
-        hotels = results.get("properties", [])  # Updated to match google_hotels response structure
+        hotels = maps_api.search_hotels(search_query, lat, lon)
         
         accommodations = []
-        for hotel in hotels[:5]:  # Get top 5 hotels
-            # Handle price extraction more robustly
-            price_info = hotel.get("rate_per_night", {})
-            price_str = price_info.get("extracted_lowest", str(daily_accommodation_budget * 0.8))
-            price_per_night = float(price_str.replace("$", "").replace(",", "")) if price_str else daily_accommodation_budget * 0.8
+        for hotel in hotels[:5]:
+            price_level = hotel.get('price_level', 2)
+            price_multiplier = {1: 0.5, 2: 0.7, 3: 0.9, 4: 1.1, 5: 1.3}.get(price_level, 0.8)
+            price_per_night = daily_accommodation_budget * price_multiplier
             total_price = price_per_night * num_nights
             
             if total_price <= budget:
                 accommodations.append({
                     "name": hotel.get("name", f"{preference} Hotel {destination}"),
-                    "rating": float(hotel.get("rating", 4.0)) if hotel.get("rating") else 4.0,
-                    "reviews": int(hotel.get("reviews", 150)) if hotel.get("reviews") else 150,
-                    "address": hotel.get("address", f"123 Main St, {destination}"),
+                    "rating": float(hotel.get("rating", 4.0)),
+                    "reviews": int(hotel.get("user_ratings_total", 150)),
+                    "address": hotel.get("formatted_address", f"123 Main St, {destination}"),
                     "price_per_night": round(price_per_night, 2),
                     "total_price": round(total_price, 2),
-                    "amenities": hotel.get("amenities", ["WiFi", "Air conditioning", "TV"]),
-                    "description": hotel.get("description", 
-                                          f"A comfortable {preference.lower()} accommodation in {destination}")
+                    "amenities": ["WiFi", "Air conditioning", "TV"],
+                    "description": hotel.get("editorial_summary", {}).get("overview", 
+                                f"A comfortable {preference.lower()} accommodation in {destination}")
                 })
         
         return accommodations if accommodations else [

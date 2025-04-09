@@ -1,58 +1,83 @@
+import requests
 from datetime import datetime
-from serpapi import GoogleSearch
-from config import SERPAPI_KEY
+from config import FOOD
+
+class GoogleMapsAPI:
+    def __init__(self):
+        self.api_key = FOOD
+        self.base_url = "https://google-map-places-new-v2.p.rapidapi.com/v1/places:autocomplete"
+        self.headers = {
+            "x-rapidapi-key": self.api_key,
+            "x-rapidapi-host": "google-map-places-new-v2.p.rapidapi.com",
+            "Content-Type": "application/json",
+            "X-Goog-FieldMask": "*"
+        }
+
+    def search_restaurants(self, query: str, lat: float, lon: float, radius: int = 10000):
+        payload = {
+            "input": query,
+            "locationBias": {
+                "circle": {
+                    "center": {
+                        "latitude": lat,
+                        "longitude": lon
+                    },
+                    "radius": radius
+                }
+            },
+            "includeQueryPredictions": True
+        }
+
+        try:
+            response = requests.post(self.base_url, json=payload, headers=self.headers)
+            response.raise_for_status()
+            return response.json().get('places', [])
+        except Exception as e:
+            print(f"Error fetching restaurants: {e}")
+            return []
 
 def get_food_recommendations(destination, food_preference, special_requirements=None):
     """
-    Get food recommendations using SerpAPI for the specified destination based on preferences.
-    
-    Args:
-        destination (str): The destination city/country
-        food_preference (str): The type of food preferred (e.g., "Local cuisine", "Fine dining")
-        special_requirements (str, optional): Any special dietary requirements
-        
-    Returns:
-        dict: A dictionary of food recommendations categorized by meal type
+    Get food recommendations using RapidAPI Google Maps for the specified destination based on preferences.
     """
     try:
+        sample_coordinates = {
+            "New York": (40.7128, -74.0060),
+            "London": (51.5074, -0.1278),
+            "Tokyo": (35.6762, 139.6503),
+            "Paris": (48.8566, 2.3522),
+            "Rome": (41.9028, 12.4964),
+            "Sydney": (-33.8688, 151.2093),
+            "Dubai": (25.2048, 55.2708),
+            "Singapore": (1.3521, 103.8198),
+            "Hong Kong": (22.3193, 114.1694),
+            "Barcelona": (41.3851, 2.1734),
+            "New Delhi": (28.6139, 77.2090)
+        }
+        lat, lon = sample_coordinates.get(destination.split(',')[0].strip(), (40.7128, -74.0060))
+        
+        maps_api = GoogleMapsAPI()
         meal_types = ["Breakfast", "Lunch", "Dinner"]
         recommendations = {}
         
         for meal_type in meal_types:
-            # Construct proper search query
             search_query = f"best {food_preference} restaurants for {meal_type.lower()} in {destination}"
             if special_requirements:
                 search_query += f" {special_requirements}"
             
-            # Corrected SerpAPI parameters for Google Maps
-            search = GoogleSearch({
-                "q": search_query,
-                "engine": "google_maps",
-                "type": "search",  # Changed from "restaurants" to proper type value
-                "api_key": SERPAPI_KEY,
-                "hl": "en",
-                "gl": "us",
-                "ll": "@40.7455096,-74.0240996,14z"  # Default lat/long zoom, could be made dynamic
-            })
-            
-            results = search.get_dict()
-            places = results.get("local_results", []) or results.get("place_results", [])
+            places = maps_api.search_restaurants(search_query, lat, lon)
             
             recommendations[meal_type] = []
-            for place in places[:4]:  # Get top 4 restaurants for each meal
-                # Handle potential missing data with defaults
-                rating = place.get("rating")
-                reviews = place.get("reviews")
-                
+            for place in places[:4]:
                 recommendations[meal_type].append({
-                    "name": place.get("title", f"{destination} Restaurant"),
-                    "rating": float(rating) if rating else 4.5,
-                    "reviews": int(reviews) if reviews else 200,
-                    "address": place.get("address", f"123 Main St, {destination}"),
-                    "price_level": place.get("price", "$$"),  # Changed from price_level to price
+                    "name": place.get("name", f"{destination} Restaurant"),
+                    "rating": float(place.get("rating", 4.5)),
+                    "reviews": int(place.get("user_ratings_total", 200)),
+                    "address": place.get("formatted_address", f"123 Main St, {destination}"),
+                    "price_level": place.get("price_level", "$$"),
                     "cuisine": food_preference,
-                    "description": place.get("description", 
-                                          f"A popular {food_preference.lower()} restaurant in {destination}")
+                    "description": place.get("editorial_summary", {}).get("overview", 
+                                f"A popular {food_preference.lower()} restaurant in {destination}")
                 })
         
         return recommendations

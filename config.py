@@ -3,18 +3,14 @@ import streamlit as st
 
 from dotenv import load_dotenv
 load_dotenv()
+'''GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+TRAVEL=os.getenv("TRAVEL")
+FOOD=os.getenv("FOOD")
+STAY=os.getenv("STAY")'''
 
-MISTRAL_ITINERARY_KEY = os.getenv("MISTRAL_ITINERARY_KEY")
-MISTRAL_TRANSPORT_KEY = os.getenv("MISTRAL_TRANSPORT_KEY")
-MISTRAL_STAY_KEY = os.getenv("MISTRAL_STAY_KEY")
-MISTRAL_FOOD_KEY = os.getenv("MISTRAL_FOOD_KEY")
-MISTRAL_PLACES_KEY = os.getenv("MISTRAL_PLACES_KEY")
-SERPAPI_KEY=os.getenv("serpapi")
-
-'''MISTRAL_ITINERARY_KEY = st.secrets.MISTRAL_ITINERARY_KEY
-MISTRAL_TRANSPORT_KEY = st.secrets.MISTRAL_TRANSPORT_KEY
-MISTRAL_STAY_KEY = st.secrets.MISTRAL_STAY_KEY
-MISTRAL_FOOD_KEY = st.secrets.MISTRAL_FOOD_KEY
-MISTRAL_PLACES_KEY = st.secrets.MISTRAL_PLACES_KEY
-SERPAPI_KEY=st.secrets.SERPAPI_KEY
-'''
+GROQ_API_KEY = st.secrets.GROQ_API_KEY
+RAPIDAPI_KEY = st.secrets.RAPIDAPI_KEY
+TRAVEL = st.secrets.TRAVEL
+FOOD = st.secrets.FOOD
+STAY = st.secrets.STAY

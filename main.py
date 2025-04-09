@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime, timedelta
+import geocoder
 
 from tools.flights import get_flight_options
 from tools.train import get_train_options
@@ -52,7 +53,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state variables
 if 'itinerary' not in st.session_state:
     st.session_state.itinerary = None
 if 'step' not in st.session_state:
@@ -64,7 +64,6 @@ st.title("✈️ Wanderly")
 st.markdown("### Your AI-Powered Trip Planner")
 
 if st.session_state.step == 1:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.header("Plan Your Journey")
     
     col1, col2 = st.columns(2)
@@ -86,11 +85,7 @@ if st.session_state.step == 1:
         )
         
         total_budget = st.number_input("Total Budget (USD)", min_value=100.0, value=1500.0, step=50.0)
-        
-        # Budget breakdown sliders
         st.markdown("### Budget Breakdown")
-        
-        # Initialize default percentages
         if 'budget_percentages' not in st.session_state:
             st.session_state.budget_percentages = {
                 "transport": 15.0,
@@ -99,7 +94,6 @@ if st.session_state.step == 1:
                 "activities": 20.0
             }
         
-        # Sliders for budget allocation
         transport_percent = st.slider("🚗 Transportation (%)", 5.0, 50.0, 
                                     st.session_state.budget_percentages["transport"], 
                                     step=1.0, key="transport_slider")
@@ -112,10 +106,8 @@ if st.session_state.step == 1:
                                st.session_state.budget_percentages["food"], 
                                step=1.0, key="food_slider")
         
-        # Calculate remaining percentage for activities
         remaining_percent = 100.0 - (transport_percent + accommodation_percent + food_percent)
         if remaining_percent < 5.0:
-            # Adjust percentages to ensure total is 100% and activities has minimum 5%
             excess = 5.0 - remaining_percent
             transport_percent -= excess / 3
             accommodation_percent -= excess / 3
@@ -123,8 +115,6 @@ if st.session_state.step == 1:
             remaining_percent = 5.0
         
         activities_percent = remaining_percent
-        
-        # Update session state
         st.session_state.budget_percentages = {
             "transport": transport_percent,
             "accommodation": accommodation_percent,
@@ -132,13 +122,11 @@ if st.session_state.step == 1:
             "activities": activities_percent
         }
         
-        # Calculate budget amounts
         transport_budget = total_budget * (transport_percent / 100)
         accommodation_budget = total_budget * (accommodation_percent / 100)
         food_budget = total_budget * (food_percent / 100)
         activities_budget = total_budget * (activities_percent / 100)
         
-        # Display budget breakdown
         st.markdown(f"🚗 Transportation: ${transport_budget:.2f} ({transport_percent:.1f}%)")
         st.markdown(f"🏨 Accommodation: ${accommodation_budget:.2f} ({accommodation_percent:.1f}%)")
         st.markdown(f"🍽️ Food & Dining: ${food_budget:.2f} ({food_percent:.1f}%)")

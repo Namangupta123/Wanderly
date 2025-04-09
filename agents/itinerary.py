@@ -1,164 +1,87 @@
 import json
 from datetime import datetime, timedelta
 from fpdf import FPDF
-from langchain.chains import LLMChain
-from langchain.schema.runnable import RunnableSequence
-from langchain_mistralai import ChatMistralAI
-from langchain.prompts import PromptTemplate
-from config import MISTRAL_ITINERARY_KEY
+from groq import Groq
+import os
 
 def generate_itinerary(user_preferences, transportation_options, accommodation_options, food_recommendations, attractions):
     """
-    Generate a complete itinerary based on user preferences and gathered data.
+    Generate a complete itinerary based on user preferences and gathered data using Groq AI.
     """
     try:
-        llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=MISTRAL_ITINERARY_KEY,
-            temperature=0.7,
-            max_tokens=4096
-        )
-        
-        template = """
-        You are a travel expert creating a detailed itinerary for a trip.
-        
-        Route: {departure_city} to {destination}
-        Travel dates: {start_date} to {end_date} ({num_days} days)
-        Total Budget: ${budget} USD
-        Transport Budget: ${transport_budget} USD
-        Accommodation Budget: ${accommodation_budget} USD
-        Food Budget: ${food_budget} USD
-        Activities Budget: ${activities_budget} USD
-        Accommodation preference: {accommodation_preference}
-        Food preference: {food_preference}
-        Special requirements: {special_requirements}
-        Transportation mode: {transportation_mode}
-        
-        I have gathered the following information for you to use:
-        
-        TRANSPORTATION OPTIONS:
-        {transportation_options}
-        
-        ACCOMMODATION OPTIONS:
-        {accommodation_options}
-        
-        FOOD RECOMMENDATIONS:
-        {food_recommendations}
-        
-        ATTRACTIONS:
-        {attractions}
-        
-        Create a detailed day-by-day itinerary including:
-        1. Transportation details for arrival and departure
-        2. Recommended accommodations within budget
-        3. Daily activities and attractions with approximate costs
-        4. Restaurant recommendations for each meal
-        5. Local transportation options between locations
-        6. Estimated costs for each day
-        
-        Format the response as a JSON object with the following structure:
-        {{
-            "user_preferences": {{
-                "departure_city": "Departure city name",
-                "destination": "Destination name"
-            }},
-            "destination": "Full destination name",
-            "dates": "Start date to end date",
-            "total_budget": {budget},
+        groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+        if not groq_client.api_key:
+            raise ValueError("GROQ_API_KEY environment variable not set")
+
+        system_prompt = """
+        You are a travel expert creating a detailed itinerary for a trip. Based on the user preferences and data provided (transportation, accommodations, food, and attractions), create a comprehensive day-by-day itinerary that maximizes the travel experience while staying within budget constraints. Return the itinerary in strict JSON format with the following structure:
+        {
+            "destination": "string",
+            "dates": "string",
+            "total_budget": float,
             "days": [
-                {{
-                    "day": 1,
+                {
+                    "day": int,
                     "date": "YYYY-MM-DD",
-                    "accommodation": {{
-                        "name": "Name of hotel/accommodation",
-                        "description": "Brief description",
-                        "cost": 0.0
-                    }},
-                    "activities": [
-                        {{
-                            "time": "Morning/Afternoon/Evening",
-                            "activity": "Name of activity",
-                            "description": "Brief description",
-                            "location": "Location name",
-                            "cost": 0.0
-                        }}
-                    ],
-                    "meals": [
-                        {{
-                            "type": "Breakfast/Lunch/Dinner",
-                            "recommendation": "Restaurant name",
-                            "cuisine": "Type of cuisine",
-                            "cost": 0.0
-                        }}
-                    ],
-                    "transportation": [
-                        {{
-                            "type": "Type of transportation",
-                            "from": "Starting point",
-                            "to": "Destination",
-                            "cost": 0.0
-                        }}
-                    ],
-                    "daily_total": 0.0
-                }}
+                    "transportation": [{"type": "string", "from": "string", "to": "string", "cost": float}],
+                    "accommodation": {"name": "string", "description": "string", "cost": float},
+                    "activities": [{"time": "string", "activity": "string", "description": "string", "location": "string", "cost": float}],
+                    "meals": [{"type": "string", "recommendation": "string", "cuisine": "string", "cost": float}],
+                    "daily_total": float
+                }
             ],
-            "total_cost": 0.0,
-            "remaining_budget": 0.0
-        }}
-        
-        Ensure all costs are realistic and within their respective budgets:
-        - Transportation costs should not exceed ${transport_budget} USD
-        - Accommodation costs should not exceed ${accommodation_budget} USD
-        - Food costs should not exceed ${food_budget} USD
-        - Activities costs should not exceed ${activities_budget} USD
-        
-        Only return the JSON object, nothing else.
-        """
-        
-        prompt = PromptTemplate(
-            input_variables=[
-                "departure_city", "destination", "start_date", "end_date", "num_days",
-                "budget", "transport_budget", "accommodation_budget", "food_budget", "activities_budget",
-                "accommodation_preference", "food_preference", "special_requirements",
-                "transportation_mode", "transportation_options", "accommodation_options",
-                "food_recommendations", "attractions"
-            ],
-            template=template
-        )
-        
-        chain = prompt | llm
-        
-        input_data = {
-            "departure_city": user_preferences["departure_city"],
-            "destination": user_preferences["destination"],
-            "start_date": user_preferences["start_date"],
-            "end_date": user_preferences["end_date"],
-            "num_days": user_preferences["num_days"],
-            "budget": user_preferences["budget"],
-            "transport_budget": user_preferences["transport_budget"],
-            "accommodation_budget": user_preferences["accommodation_budget"],
-            "food_budget": user_preferences["food_budget"],
-            "activities_budget": user_preferences["activities_budget"],
-            "accommodation_preference": user_preferences["accommodation"],
-            "food_preference": user_preferences["food"],
-            "special_requirements": user_preferences.get("special_requirements", "None"),
-            "transportation_mode": user_preferences["transportation_mode"],
-            "transportation_options": json.dumps(transportation_options, indent=2),
-            "accommodation_options": json.dumps(accommodation_options, indent=2),
-            "food_recommendations": json.dumps(food_recommendations, indent=2),
-            "attractions": json.dumps(attractions, indent=2)
+            "total_cost": float,
+            "remaining_budget": float
         }
+        Ensure all costs are numbers (not strings with $), and wrap the JSON in ```json``` markers.
+        """
+
+        user_prompt = f"""
+        Route: {user_preferences['departure_city']} to {user_preferences['destination']}
+        Travel dates: {user_preferences['start_date']} to {user_preferences['end_date']} ({user_preferences['num_days']} days)
+        Total Budget: ${user_preferences['budget']} USD
+        Transport Budget: ${user_preferences['transport_budget']} USD
+        Accommodation Budget: ${user_preferences['accommodation_budget']} USD
+        Food Budget: ${user_preferences['food_budget']} USD
+        Activities Budget: ${user_preferences['activities_budget']} USD
+        Accommodation preference: {user_preferences['accommodation']}
+        Food preference: {user_preferences['food']}
+        Special requirements: {user_preferences['special_requirements']}
+        Transportation mode: {user_preferences['transportation_mode']}
         
-        response = chain.invoke(input_data)
-        
-        # Handle case where response might not be valid JSON
+        Available data:
+        TRANSPORTATION OPTIONS: {json.dumps(transportation_options, indent=2)}
+        ACCOMMODATION OPTIONS: {json.dumps(accommodation_options, indent=2)}
+        FOOD RECOMMENDATIONS: {json.dumps(food_recommendations, indent=2)}
+        ATTRACTIONS: {json.dumps(attractions, indent=2)}
+        """
+
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7
+        )
+
+        itinerary_text = response.choices[0].message.content.strip()
+        print("Text returned by Groq: ")
+        print(itinerary_text)
+        if "```json" in itinerary_text:
+            json_start = itinerary_text.index("```json") + 7
+            json_end = itinerary_text.rindex("```")
+            itinerary_text = itinerary_text[json_start:json_end].strip()
+
         try:
-            itinerary = json.loads(response.content if hasattr(response, 'content') else str(response))
-        except json.JSONDecodeError:
-            raise ValueError("Invalid JSON response from LLM")
-        
+            itinerary = json.loads(itinerary_text)
+            itinerary["user_preferences"] = user_preferences
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON response from Groq: {itinerary_text}")
+            raise ValueError(f"Failed to parse Groq response as JSON: {str(e)}")
+
         return itinerary
-        
+
     except Exception as e:
         print(f"Error generating itinerary: {str(e)}")
         return generate_fallback_itinerary(user_preferences)
@@ -171,7 +94,6 @@ def generate_pdf_itinerary(itinerary):
     pdf.add_page()
     
     pdf.set_font("Arial", "B", 16)
-    
     pdf.cell(190, 10, f"Wanderly Itinerary: {itinerary['user_preferences']['departure_city']} to {itinerary['destination']}", 0, 1, "C")
     pdf.cell(190, 10, f"{itinerary['dates']}", 0, 1, "C")
     pdf.ln(10)
@@ -189,7 +111,7 @@ def generate_pdf_itinerary(itinerary):
         pdf.cell(190, 10, f"Day {day['day']} - {day['date']}", 0, 1)
         pdf.ln(5)
         
-        if day['day'] == 1 or day['day'] == len(itinerary['days']):
+        if day.get('transportation'):
             pdf.set_font("Arial", "B", 12)
             pdf.cell(190, 10, "Transportation", 0, 1)
             pdf.set_font("Arial", "", 12)
@@ -221,14 +143,6 @@ def generate_pdf_itinerary(itinerary):
             pdf.cell(190, 10, f"{meal['type']}: {meal['recommendation']} ({meal['cuisine']}) - ${meal['cost']}", 0, 1)
         pdf.ln(5)
         
-        if day['day'] != 1 and day['day'] != len(itinerary['days']):
-            pdf.set_font("Arial", "B", 12)
-            pdf.cell(190, 10, "Local Transportation", 0, 1)
-            pdf.set_font("Arial", "", 12)
-            for transport in day['transportation']:
-                pdf.cell(190, 10, f"{transport['type']}: {transport['from']} to {transport['to']} - ${transport['cost']}", 0, 1)
-            pdf.ln(5)
-        
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 10, f"Daily Total: ${day['daily_total']}", 0, 1)
         pdf.ln(10)
@@ -243,7 +157,7 @@ def generate_fallback_itinerary(user_preferences):
         start_date = datetime.strptime(user_preferences["start_date"], "%Y-%m-%d")
         end_date = datetime.strptime(user_preferences["end_date"], "%Y-%m-%d")
         num_days = user_preferences["num_days"]
-        budget = float(user_preferences["budget"])  # Ensure budget is float
+        budget = float(user_preferences["budget"])
         
         if num_days <= 0:
             raise ValueError("Number of days must be positive")
@@ -251,12 +165,9 @@ def generate_fallback_itinerary(user_preferences):
         daily_budget = budget / num_days
         
         itinerary = {
-            "user_preferences": {
-                "departure_city": departure_city,
-                "destination": destination
-            },
+            "user_preferences": user_preferences,
             "destination": destination,
-            "dates": f"{user_preferences['start_date']} to {user_preferences['end_date']}",
+            "dates": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
             "total_budget": budget,
             "days": [],
             "total_cost": 0.0,
@@ -269,57 +180,25 @@ def generate_fallback_itinerary(user_preferences):
         for day in range(1, num_days + 1):
             accommodation_cost = daily_budget * 0.4
             
-            activities = []
-            activity_times = ["Morning", "Afternoon", "Evening"]
-            activity_cost_total = 0.0
+            activities = [
+                {"time": "Morning", "activity": f"Explore {destination}", "description": "City sightseeing", "location": destination, "cost": daily_budget * 0.1},
+                {"time": "Afternoon", "activity": "Local Culture", "description": "Visit a museum or market", "location": destination, "cost": daily_budget * 0.1},
+                {"time": "Evening", "activity": "Relax", "description": "Evening stroll", "location": destination, "cost": daily_budget * 0.05}
+            ]
+            activity_cost_total = sum(a["cost"] for a in activities)
             
-            for i, time in enumerate(activity_times):
-                activity_cost = daily_budget * 0.1
-                activity_cost_total += activity_cost
-                activities.append({
-                    "time": time,
-                    "activity": f"Explore {destination} - Activity {i+1}",
-                    "description": f"Enjoy the sights and experiences of {destination}",
-                    "location": f"{destination} - Location {i+1}",
-                    "cost": round(activity_cost, 2)
-                })
+            meals = [
+                {"type": "Breakfast", "recommendation": "Local Cafe", "cuisine": user_preferences["food"], "cost": daily_budget * 0.1},
+                {"type": "Lunch", "recommendation": "Street Food", "cuisine": user_preferences["food"], "cost": daily_budget * 0.1},
+                {"type": "Dinner", "recommendation": "Restaurant", "cuisine": user_preferences["food"], "cost": daily_budget * 0.15}
+            ]
+            meal_cost_total = sum(m["cost"] for m in meals)
             
-            meals = []
-            meal_types = ["Breakfast", "Lunch", "Dinner"]
-            meal_cost_total = 0.0
-            
-            for i, meal_type in enumerate(meal_types):
-                meal_cost = daily_budget * 0.1
-                meal_cost_total += meal_cost
-                meals.append({
-                    "type": meal_type,
-                    "recommendation": f"{destination} Restaurant {i+1}",
-                    "cuisine": user_preferences["food"],
-                    "cost": round(meal_cost, 2)
-                })
-            
-            if day == 1:
-                transportation = [{
-                    "type": user_preferences["transportation_mode"].title(),
-                    "from": departure_city,
-                    "to": destination,
-                    "cost": round(daily_budget * 0.3, 2)
-                }]
-            elif day == num_days:
-                transportation = [{
-                    "type": user_preferences["transportation_mode"].title(),
-                    "from": destination,
-                    "to": departure_city,
-                    "cost": round(daily_budget * 0.3, 2)
-                }]
-            else:
-                transportation = [{
-                    "type": "Local Transport",
-                    "from": "Accommodation",
-                    "to": "Various Locations",
-                    "cost": round(daily_budget * 0.1, 2)
-                }]
-            
+            transportation = (
+                [{"type": user_preferences["transportation_mode"].title(), "from": departure_city, "to": destination, "cost": daily_budget * 0.3}] if day == 1 else
+                [{"type": user_preferences["transportation_mode"].title(), "from": destination, "to": departure_city, "cost": daily_budget * 0.3}] if day == num_days else
+                [{"type": "Local Transport", "from": "Accommodation", "to": "Various Locations", "cost": daily_budget * 0.1}]
+            )
             transportation_cost = sum(t["cost"] for t in transportation)
             
             daily_total = accommodation_cost + activity_cost_total + meal_cost_total + transportation_cost
@@ -328,17 +207,12 @@ def generate_fallback_itinerary(user_preferences):
             itinerary["days"].append({
                 "day": day,
                 "date": current_date.strftime("%Y-%m-%d"),
-                "accommodation": {
-                    "name": f"{destination} Hotel",
-                    "description": f"Standard accommodation in {destination}",
-                    "cost": round(accommodation_cost, 2)
-                },
+                "transportation": transportation,
+                "accommodation": {"name": f"{destination} Hotel", "description": "Standard stay", "cost": accommodation_cost},
                 "activities": activities,
                 "meals": meals,
-                "transportation": transportation,
                 "daily_total": round(daily_total, 2)
             })
-            
             current_date += timedelta(days=1)
         
         itinerary["total_cost"] = round(total_cost, 2)
@@ -349,10 +223,7 @@ def generate_fallback_itinerary(user_preferences):
     except Exception as e:
         print(f"Error in fallback itinerary: {str(e)}")
         return {
-            "user_preferences": {
-                "departure_city": user_preferences.get("departure_city", "Unknown"),
-                "destination": user_preferences.get("destination", "Unknown")
-            },
+            "user_preferences": user_preferences,
             "destination": user_preferences.get("destination", "Unknown"),
             "dates": "N/A",
             "total_budget": 0,
