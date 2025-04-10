@@ -43,13 +43,6 @@ st.markdown("""
         border-radius: 5px;
         margin: 10px 0;
     }
-    .card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -246,7 +239,6 @@ elif st.session_state.step == 2:
         st.rerun()
         st.stop()
     
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.header(f"Your Itinerary: {itinerary['user_preferences']['departure_city']} to {itinerary['destination']}")
     st.subheader(f"{itinerary['dates']}")
     
@@ -261,7 +253,6 @@ elif st.session_state.step == 2:
     st.markdown('</div>', unsafe_allow_html=True)
     
     for day in itinerary['days']:
-        st.markdown(f'<div class="card">', unsafe_allow_html=True)
         st.subheader(f"Day {day['day']} - {day['date']}")
         
         if day['day'] == 1 or day['day'] == len(itinerary['days']):
@@ -289,7 +280,6 @@ elif st.session_state.step == 2:
                 st.markdown(f"**{transport['type']}**: {transport['from']} to {transport['to']} - ${transport['cost']:.2f}")
         
         st.markdown(f"**Daily Total: ${day.get('daily_total', 0):.2f}**")
-        st.markdown('</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
