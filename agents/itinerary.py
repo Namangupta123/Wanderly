@@ -55,8 +55,8 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         - **Total Spent**: $[amount]
         - **Remaining**: $[amount]
         Rules:
-        1- keep the budget in limits
-        2- Always ensure the numbers of days are correct
+        1- keep the budget in limits.
+        2- Always ensure the numbers of days are correct. Do a double check for it.
         """
         
         user_prompt = f"""
@@ -94,6 +94,7 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         3. Keep costs within budget constraints
         4. Provide detailed descriptions for activities
         5. Include realistic travel times and logistics
+        6. Ensure the Number of days are correct, you should do a double check before returing response.
         """
 
         response = groq_client.chat.completions.create(
@@ -105,6 +106,7 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
             temperature=0.7
         )
         itinerary = response.choices[0].message.content
+        print(itinerary)
         return itinerary
 
     except Exception as e:
@@ -145,7 +147,7 @@ def generate_pdf_itinerary(markdown_content):
             elif line.strip():
                 pdf.cell(0, 10, line, ln=True)
         
-        return pdf.output(dest='S').encode('latin-1')
+        return pdf.output(dest='S').decode('latin-1')
         
     except Exception as e:
         print(f"Error generating PDF: {str(e)}")
