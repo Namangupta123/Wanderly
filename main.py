@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime, timedelta
 import geocoder
-import markdown2
 
 # Must be the first Streamlit command
 st.set_page_config(
@@ -17,7 +16,7 @@ from tools.places import get_attractions
 from tools.stay import get_accommodation_options
 from agents.itinerary import generate_itinerary, generate_pdf_itinerary
 
-# Custom CSS styling (excluding budget-box)
+# Custom CSS styling (removed error-box)
 st.markdown("""
     <style>
     .main {
@@ -44,12 +43,6 @@ st.markdown("""
         color: #34495e;
         font-size: 24px;
         margin-top: 20px;
-    }
-    .error-box {
-        background-color: #ffebee;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -115,8 +108,7 @@ with st.container():
                 
                 total_percent = transport_percent + accommodation_percent + food_percent
                 if total_percent > 100:
-                    st.markdown('<div class="error-box">Error: Budget percentages exceed 100%</div>',
-                              unsafe_allow_html=True)
+                    st.error("Budget percentages exceed 100%")
                     activities_percent = 0.0
                 else:
                     activities_percent = 100.0 - total_percent
@@ -168,14 +160,11 @@ with st.container():
         
         if st.button("Generate Itinerary", key="generate"):
             if not departure_city or not destination:
-                st.markdown('<div class="error-box">Please enter both departure city and destination</div>',
-                          unsafe_allow_html=True)
+                st.error("Please enter both departure city and destination")
             elif start_date >= end_date:
-                st.markdown('<div class="error-box">End date must be after start date</div>',
-                          unsafe_allow_html=True)
+                st.error("End date must be after start date")
             elif total_percent > 100:
-                st.markdown('<div class="error-box">Please adjust budget percentages to sum to 100% or less</div>',
-                          unsafe_allow_html=True)
+                st.error("Please adjust budget percentages to sum to 100% or less")
             else:
                 with st.spinner("Generating your personalized itinerary..."):
                     try:
@@ -227,14 +216,12 @@ with st.container():
                         st.rerun()
                         
                     except Exception as e:
-                        st.markdown(f'<div class="error-box">An error occurred: {str(e)}</div>',
-                                  unsafe_allow_html=True)
+                        st.error(f"An error occurred: {str(e)}")
 
     elif st.session_state.step == 2:
         markdown_content = st.session_state.itinerary_markdown
         if not markdown_content:
-            st.markdown('<div class="error-box">No itinerary found. Please start over.</div>',
-                      unsafe_allow_html=True)
+            st.error("No itinerary found. Please start over.")
             st.session_state.step = 1
             st.rerun()
         
@@ -261,5 +248,4 @@ with st.container():
                             key="download_button"
                         )
                 except Exception as e:
-                    st.markdown(f'<div class="error-box">Failed to generate PDF: {str(e)}</div>',
-                              unsafe_allow_html=True)
+                    st.error(f"Failed to generate PDF: {str(e)}")
