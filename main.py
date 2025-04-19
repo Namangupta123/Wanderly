@@ -13,7 +13,7 @@ from tools.train import get_train_options
 from tools.food import get_food_recommendations
 from tools.places import get_attractions
 from tools.stay import get_accommodation_options
-from agents.itinerary import generate_itinerary, generate_pdf_itinerary
+from agents.itinerary import generate_itinerary
 
 st.markdown("""
     <style>
