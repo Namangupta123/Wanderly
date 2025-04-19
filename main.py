@@ -240,7 +240,7 @@ with st.container():
                 try:
                     with st.spinner("Generating Text file..."):
                         st.download_button(
-                            label="Download PDF Now",
+                            label="Download",
                             data=markdown_content,
                             file_name=f"Wanderly_Itinerary_{datetime.now().strftime('%Y%m%d')}.txt",
                             mime="text/plain",
