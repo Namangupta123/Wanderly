@@ -2,7 +2,6 @@ import streamlit as st
 from datetime import datetime, timedelta
 import geocoder
 
-# Must be the first Streamlit command
 st.set_page_config(
     page_title="Wanderly - Smart Trip Planner",
     page_icon="✈️",
@@ -16,7 +15,6 @@ from tools.places import get_attractions
 from tools.stay import get_accommodation_options
 from agents.itinerary import generate_itinerary, generate_pdf_itinerary
 
-# Custom CSS styling (removed error-box)
 st.markdown("""
     <style>
     .main {
@@ -47,7 +45,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state with defaults
 def init_session_state():
     defaults = {
         'itinerary_markdown': None,
@@ -225,7 +222,6 @@ with st.container():
             st.session_state.step = 1
             st.rerun()
         
-        # Display itinerary without budget-box styling
         st.markdown(markdown_content)
         
         col1, col2 = st.columns(2)
@@ -236,15 +232,14 @@ with st.container():
                 st.rerun()
         
         with col2:
-            if st.button("Download PDF", key="download"):
+            if st.button("Download Itinerary", key="download"):
                 try:
-                    with st.spinner("Generating PDF..."):
-                        pdf_content = generate_pdf_itinerary(markdown_content)
+                    with st.spinner("Generating Text file..."):
                         st.download_button(
                             label="Download PDF Now",
-                            data=pdf_content,
-                            file_name=f"Wanderly_Itinerary_{datetime.now().strftime('%Y%m%d')}.pdf",
-                            mime="application/pdf",
+                            data=markdown_content,
+                            file_name=f"Wanderly_Itinerary_{datetime.now().strftime('%Y%m%d')}.txt",
+                            mime="text/plain",
                             key="download_button"
                         )
                 except Exception as e:

@@ -4,6 +4,10 @@ from groq import Groq
 import os
 from fpdf import FPDF
 from config import GROQ_API_KEY
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def generate_itinerary(user_preferences, transportation_options, accommodation_options, food_recommendations, attractions):
     """
@@ -15,6 +19,12 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         system_prompt = """
         You are a travel expert creating a detailed itinerary in markdown format. Create a comprehensive day-by-day itinerary that includes all necessary details while maintaining a clear, organized structure.
 
+        **Important Instructions**:
+        - Use only ASCII characters (Latin encoding) in the response.
+        - Do not use emojis or non-ASCII characters (e.g., no 🚗, 🏨, etc.).
+        - Use ASCII-friendly placeholders for section headers (e.g., [Transport], [Accommodation], [Activities], [Meals], [Daily Total]).
+        - Ensure all text is compatible with Latin-1 encoding to avoid encoding issues.
+
         Use the following markdown structure:
         # Trip Itinerary: [Departure] to [Destination]
 
@@ -24,39 +34,43 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         - **Duration**: [X] days
 
         ## Day 1 - [Date]
-        ### 🚗 Transportation
+        ### [Transport]
         - **Type**: [Mode]
         - **From**: [Location]
         - **To**: [Location]
         - **Cost**: $[amount]
 
-        ### 🏨 Accommodation
+        ### [Accommodation]
         - **Hotel**: [Name]
         - **Cost**: $[amount]
         - **Details**: [Description]
 
-        ### 🎯 Activities
+        ### [Activities]
         #### Morning
         - **Activity**: [Name]
         - **Location**: [Place]
         - **Cost**: $[amount]
         - **Details**: [Description]
 
-        ### 🍽️ Meals
+        ### [Meals]
         - **Breakfast**: [Place] - $[amount]
         - **Lunch**: [Place] - $[amount]
         - **Dinner**: [Place] - $[amount]
 
-        ### 💰 Daily Total: $[amount]
+        ### [Daily Total]: $[amount]
 
         [Repeat for each day]
 
         ## Budget Summary
         - **Total Spent**: $[amount]
         - **Remaining**: $[amount]
+
         Rules:
-        1- keep the budget in limits.
-        2- Always ensure the numbers of days are correct. Do a double check for it.
+        1. Keep the budget within limits.
+        2. Always ensure the number of days is correct. Double-check the duration.
+        3. Use only ASCII characters (no emojis or special characters).
+        4. Provide detailed descriptions for activities.
+        5. Include realistic travel times and logistics.
         """
         
         user_prompt = f"""
@@ -77,26 +91,27 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
         Available data:
         
         TRANSPORTATION OPTIONS:
-        {json.dumps(transportation_options, indent=2)}
+        {json.dumps(transportation_options, indent=2, ensure_ascii=True)}
         
         ACCOMMODATION OPTIONS:
-        {json.dumps(accommodation_options, indent=2)}
+        {json.dumps(accommodation_options, indent=2, ensure_ascii=True)}
         
         FOOD RECOMMENDATIONS:
-        {json.dumps(food_recommendations, indent=2)}
+        {json.dumps(food_recommendations, indent=2, ensure_ascii=True)}
         
         ATTRACTIONS:
-        {json.dumps(attractions, indent=2)}
+        {json.dumps(attractions, indent=2, ensure_ascii=True)}
 
         Please provide the itinerary in the specified markdown format. Make sure to:
-        1. Include emojis for better visual organization
-        2. Use bold text for important information
-        3. Keep costs within budget constraints
-        4. Provide detailed descriptions for activities
-        5. Include realistic travel times and logistics
-        6. Ensure the Number of days are correct, you should do a double check before returing response.
+        1. Use only ASCII characters (no emojis or non-ASCII characters).
+        2. Use bold text for important information.
+        3. Keep costs within budget constraints.
+        4. Provide detailed descriptions for activities.
+        5. Include realistic travel times and logistics.
+        6. Ensure the number of days is correct; double-check before returning the response.
         """
 
+        logger.debug("Sending request to Groq API")
         response = groq_client.chat.completions.create(
             model="llama3-8b-8192",
             messages=[
@@ -106,49 +121,20 @@ def generate_itinerary(user_preferences, transportation_options, accommodation_o
             temperature=0.7
         )
         itinerary = response.choices[0].message.content
+        logger.debug(f"Received itinerary: {itinerary[:200]}...")
+        
+        try:
+            itinerary.encode('ascii')
+        except UnicodeEncodeError as e:
+            logger.error(f"Itinerary contains non-ASCII characters: {str(e)}")
+            itinerary = itinerary.encode('ascii', errors='ignore').decode('ascii')
+        
+        logger.info("Itinerary generated successfully")
         print(itinerary)
         return itinerary
 
     except Exception as e:
-        print(f"Error generating itinerary: {str(e)}")
-        return f"Error generating itinerary: {str(e)}"
-
-def generate_pdf_itinerary(markdown_content):
-    """
-    Generate a PDF from markdown content using FPDF
-    """
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        
-        # Set font
-        pdf.set_font("Arial", size=12)
-        
-        # Simple markdown to PDF conversion
-        lines = markdown_content.split('\n')
-        for line in lines:
-            # Handle headers
-            if line.startswith('# '):
-                pdf.set_font("Arial", 'B', 24)
-                pdf.cell(0, 10, line[2:], ln=True)
-                pdf.set_font("Arial", size=12)
-            elif line.startswith('## '):
-                pdf.set_font("Arial", 'B', 20)
-                pdf.cell(0, 10, line[3:], ln=True)
-                pdf.set_font("Arial", size=12)
-            elif line.startswith('### '):
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, line[4:], ln=True)
-                pdf.set_font("Arial", size=12)
-            # Handle bullet points
-            elif line.startswith('- '):
-                pdf.cell(0, 10, '• ' + line[2:], ln=True)
-            # Handle regular text
-            elif line.strip():
-                pdf.cell(0, 10, line, ln=True)
-        
-        return pdf.output(dest='S').decode('latin-1')
-        
-    except Exception as e:
-        print(f"Error generating PDF: {str(e)}")
-        raise Exception(f"Failed to generate PDF: {str(e)}")
+        logger.error(f"Error generating itinerary: {str(e)}", exc_info=True)
+        error_msg = f"Error generating itinerary: {str(e)}"
+        print(error_msg)
+        return error_msg
