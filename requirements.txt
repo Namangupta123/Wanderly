@@ -1,6 +1,5 @@
 Streamlit
-SerpAPI
-Langchain
-fpdf
-langchain_mistralai
+groq
+requests
+python-dotenv
 pip

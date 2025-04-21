@@ -3,18 +3,18 @@
 Wanderly is an intelligent trip planning application that generates a personalized itinerary PDF based on user-selected preferences. Whether you're planning a solo trip, a family vacation, or an adventure with friends, Wanderly makes it seamless and hassle-free!
 
 ## 🚀 Features
-- 🌍 **Custom Itineraries** – Select your destinations, travel dates, and preferences to get a tailored itinerary.
-- 📄 **PDF Generation** – Get a downloadable itinerary PDF with all your travel details.
-- 🏨 **Accommodation Suggestions** – Find recommended hotels and stays based on your trip.
-- 🍽️ **Food & Attractions** – Discover local attractions and dining options.
-- 🎯 **Smart Recommendations** – AI-driven suggestions for optimizing your travel experience.
+- 🌍 **Custom Itineraries** – Get tailored day-by-day itineraries based on your destination, dates, budget and interests
+- 🏨 **Accommodation Matching** – Find accommodations that match your preferences from hostels to luxury hotels
+- 🍽️ **Dining & Attractions** – Discover real-time attractions and dining recommendations based on your interests and dietary needs
+- ⏱️ **Activity Planning** – Activities planned according to your walking comfort and mobility preferences
+- 💰 **Budget Optimization** – Suggestions tailored to your selected budget level
+- 📥 **Downloadable Itineraries** – Save your personalized itinerary as a text file
 
 ## 🛠️ Tech Stack
-- **Streamlit**
-- **Python**
-- **SerpAPI**
-- **Langchain**
-- **mistralAI**
+- **Streamlit** - Interactive web interface
+- **Python** - Backend logic
+- **Groq** - LLM API for itinerary generation
+- **Places API** - Real-time attractions data
 
 ## 📦 Installation
 ```bash
