@@ -58,7 +58,7 @@ class TravelPlanner:
                 
                 dietary = st.multiselect("Dietary Preferences:", 
                     ["Vegetarian", "Non-Vegetarian", "Vegan", "Halal", "Kosher", "No restrictions"],
-                    help="Select any dietary requirements")
+                    help="Select any dietary requirements", default="No restrictions")
                 
                 interests = st.multiselect("Specific Interests:", 
                     ["Museums", "Historical Sites", "Nature", "Local Markets", 
@@ -67,7 +67,7 @@ class TravelPlanner:
                 
                 accommodation = st.selectbox("Accommodation Preference:", 
                     ["Hostel", "Budget Hotel", "Mid-range Hotel", 
-                     "Luxury Hotel", "Vacation Rental"],
+                     "Luxury Hotel", "Rental"],
                     help="Choose your preferred accommodation type")
             
             submitted = st.form_submit_button("Generate Itinerary", use_container_width=True)
@@ -160,8 +160,8 @@ class TravelPlanner:
         )
 
     def main(self):
-        st.title("Wanderly")
-        
+        st.set_page_config(page_title="Wanderly", page_icon=":airplane:")
+        st.title(":airplane: Wanderly")
         if st.session_state.current_step == 0:
             self.get_all_preferences()
         elif st.session_state.current_step == 1:
