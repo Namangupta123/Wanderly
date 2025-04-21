@@ -5,13 +5,11 @@ from groq import Groq
 import json
 from datetime import datetime, timedelta
 from places_api import PlacesAPI
+from config import GROQ_API_KEY
+from config import RAPIDAPI_KEY
 
-# Load environment variables
-load_dotenv()
-
-# Initialize clients
-groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-places_client = PlacesAPI(api_key=os.getenv('RAPIDAPI_KEY'))
+groq_client = Groq(api_key=GROQ_API_KEY)
+places_client = PlacesAPI(api_key=RAPIDAPI_KEY)
 
 
 class TravelPlanner:
@@ -32,10 +30,10 @@ class TravelPlanner:
         st.header("Travel Preferences")
         
         with st.form("travel_basics"):
-            destination = st.text_input("Where would you like to go?")
-            start_location = st.text_input("Where will you be traveling from?")
+            destination = st.text_input("Where would you like to go?", placeholder="New Delhi, India")
+            start_location = st.text_input("Where will you be traveling from?", placeholder="Mumbai, India")
             start_date = st.date_input("When do you plan to start your trip?")
-            duration = st.number_input("How many days is your trip?", min_value=1, max_value=30, value=7)
+            duration = st.number_input("How many days is your trip?", min_value=1, max_value=30, value=4)
             budget = st.selectbox("What's your budget level?", 
                                 ["Budget", "Mid-range", "Luxury"])
             purpose = st.multiselect("What's the purpose of your trip?", 
@@ -87,7 +85,6 @@ class TravelPlanner:
         """Fetch real attractions data using Places API"""
         attractions_data = places_client.get_attractions(destination, interests)
         
-        # Format attractions data for the prompt
         attractions_text = "\nReal-time Attractions Information:\n"
         for interest, places in attractions_data.items():
             attractions_text += f"\n{interest.title()} Attractions:\n"
@@ -100,23 +97,19 @@ class TravelPlanner:
         """Generate and display the travel itinerary"""
         st.header("Your Personalized Travel Itinerary")
         
-        # Show loading message while fetching attractions
         with st.spinner("Fetching real-time attractions data..."):
             attractions_info = self.get_attractions_for_destination(
                 st.session_state.user_preferences['destination'],
                 st.session_state.user_preferences['interests']
             )
         
-        # Convert start date to datetime object
         start_date = datetime.strptime(st.session_state.user_preferences['start_date'], "%Y-%m-%d")
         
-        # Generate daily itinerary with specific dates
         itinerary_dates = []
         for i in range(st.session_state.user_preferences['duration']):
             day_date = start_date + timedelta(days=i)
             itinerary_dates.append(day_date.strftime("%B %d, %Y"))
 
-        # Create the prompt for the AI
         system_prompt = """You are an expert travel planner. Generate a detailed day-by-day 
         itinerary based on the user preferences and real-time attractions data. Include:
         - Daily activities with approximate timings
@@ -143,7 +136,6 @@ class TravelPlanner:
         Day 2 ({itinerary_dates[1]}): Exploration
         ..."""
         
-        # Generate itinerary using Groq
         response = groq_client.chat.completions.create(
             model="llama3-8b-8192",
             messages=[
@@ -153,10 +145,8 @@ class TravelPlanner:
             temperature=0.7
         )
         
-        # Display the itinerary
         st.markdown(response.choices[0].message.content)
         
-        # Simplified download button (removed the columns and second button)
         st.download_button(
             label="Download Itinerary",
             data=response.choices[0].message.content,
@@ -165,7 +155,7 @@ class TravelPlanner:
         )
 
     def main(self):
-        st.title("AI Travel Planner")
+        st.title("Wanderly")
         
         if st.session_state.current_step == 0:
             self.get_initial_preferences()
