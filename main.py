@@ -103,7 +103,7 @@ class TravelPlanner:
         """Generate and display the travel itinerary"""
         st.header("Your Personalized Travel Itinerary")
         
-        with st.spinner("Fetching real-time attractions data..."):
+        with st.spinner("Generating you personlised itinerary"):
             attractions_info = self.get_attractions_for_destination(
                 st.session_state.user_preferences['destination'],
                 st.session_state.user_preferences['interests']
