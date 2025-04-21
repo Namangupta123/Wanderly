@@ -11,7 +11,6 @@ from config import RAPIDAPI_KEY
 groq_client = Groq(api_key=GROQ_API_KEY)
 places_client = PlacesAPI(api_key=RAPIDAPI_KEY)
 
-
 class TravelPlanner:
     def __init__(self):
         self.initialize_session_state()
@@ -25,21 +24,53 @@ class TravelPlanner:
         if 'chat_history' not in st.session_state:
             st.session_state.chat_history = []
             
-    def get_initial_preferences(self):
-        """Collect basic travel preferences"""
+    def get_all_preferences(self):
+        """Collect all travel preferences in one step"""
         st.header("Travel Preferences")
         
-        with st.form("travel_basics"):
-            destination = st.text_input("Where would you like to go?", placeholder="New Delhi, India")
-            start_location = st.text_input("Where will you be traveling from?", placeholder="Mumbai, India")
-            start_date = st.date_input("When do you plan to start your trip?")
-            duration = st.number_input("How many days is your trip?", min_value=1, max_value=30, value=4)
-            budget = st.selectbox("What's your budget level?", 
-                                ["Budget", "Mid-range", "Luxury"])
-            purpose = st.multiselect("What's the purpose of your trip?", 
-                                   ["Sightseeing", "Relaxation", "Adventure", "Culture", "Food", "Shopping"])
+        with st.form("travel_preferences"):
+            col1, col2 = st.columns(2)
             
-            submitted = st.form_submit_button("Continue")
+            with col1:
+                destination = st.text_input("Where would you like to go?", 
+                    placeholder="New Delhi, India",
+                    help="Enter your destination city and country")
+                
+                start_location = st.text_input("Where will you be traveling from?", 
+                    placeholder="Mumbai, India",
+                    help="Enter your starting location")
+                
+                start_date = st.date_input("When do you plan to start your trip?",
+                    help="Select your trip start date")
+                
+                duration = st.number_input("How many days is your trip?", 
+                    min_value=1, max_value=30, value=4,
+                    help="Choose the duration of your trip in days")
+                
+                budget = st.selectbox("What's your budget level?", 
+                    ["Budget", "Mid-range", "Luxury"],
+                    help="Select your preferred budget range")
+            
+            with col2:
+                purpose = st.multiselect("What's the purpose of your trip?", 
+                    ["Sightseeing", "Relaxation", "Adventure", "Culture", "Food", "Shopping"],
+                    help="Select all that apply")
+                
+                dietary = st.multiselect("Dietary Preferences:", 
+                    ["Vegetarian", "Non-Vegetarian", "Vegan", "Halal", "Kosher", "No restrictions"],
+                    help="Select any dietary requirements")
+                
+                interests = st.multiselect("Specific Interests:", 
+                    ["Museums", "Historical Sites", "Nature", "Local Markets", 
+                     "Nightlife", "Art Galleries", "Local Cuisine"],
+                    help="Select activities you're interested in")
+                
+                accommodation = st.selectbox("Accommodation Preference:", 
+                    ["Hostel", "Budget Hotel", "Mid-range Hotel", 
+                     "Luxury Hotel", "Vacation Rental"],
+                    help="Choose your preferred accommodation type")
+            
+            submitted = st.form_submit_button("Generate Itinerary", use_container_width=True)
             
             if submitted:
                 st.session_state.user_preferences.update({
@@ -48,37 +79,12 @@ class TravelPlanner:
                     'start_date': str(start_date),
                     'duration': duration,
                     'budget': budget,
-                    'purpose': purpose
-                })
-                st.session_state.current_step = 1
-                st.rerun()
-
-    def get_detailed_preferences(self):
-        """Collect detailed preferences"""
-        st.header("Additional Preferences")
-        
-        with st.form("detailed_preferences"):
-            dietary = st.multiselect("Dietary Preferences:", 
-                                   ["Vegetarian", "Non-Vegetarian", "Vegan", "Halal", "Kosher", "No restrictions"])
-            interests = st.multiselect("Specific Interests:", 
-                                     ["Museums", "Historical Sites", "Nature", "Local Markets", 
-                                      "Nightlife", "Art Galleries", "Local Cuisine"])
-            mobility = st.select_slider("Walking Comfort (hours per day):", 
-                                      options=[1, 2, 3, 4, 5, 6])
-            accommodation = st.selectbox("Accommodation Preference:", 
-                                       ["Hostel", "Budget Hotel", "Mid-range Hotel", 
-                                        "Luxury Hotel", "Vacation Rental"])
-            
-            submitted = st.form_submit_button("Generate Itinerary")
-            
-            if submitted:
-                st.session_state.user_preferences.update({
+                    'purpose': purpose,
                     'dietary': dietary,
                     'interests': interests,
-                    'mobility': mobility,
                     'accommodation': accommodation
                 })
-                st.session_state.current_step = 2
+                st.session_state.current_step = 1
                 st.rerun()
 
     def get_attractions_for_destination(self, destination: str, interests: list) -> str:
@@ -126,7 +132,6 @@ class TravelPlanner:
         Budget Level: {st.session_state.user_preferences['budget']}
         Interests: {', '.join(st.session_state.user_preferences['interests'])}
         Dietary Preferences: {', '.join(st.session_state.user_preferences['dietary'])}
-        Walking Comfort: {st.session_state.user_preferences['mobility']} hours per day
         Accommodation: {st.session_state.user_preferences['accommodation']}
 
         {attractions_info}
@@ -150,7 +155,7 @@ class TravelPlanner:
         st.download_button(
             label="Download Itinerary",
             data=response.choices[0].message.content,
-            file_name="travel_itinerary.txt",
+            file_name=f"Wanderly_itinerary{st.session_state.user_preferences['destination']}.txt",
             mime="text/plain"
         )
 
@@ -158,10 +163,8 @@ class TravelPlanner:
         st.title("Wanderly")
         
         if st.session_state.current_step == 0:
-            self.get_initial_preferences()
+            self.get_all_preferences()
         elif st.session_state.current_step == 1:
-            self.get_detailed_preferences()
-        elif st.session_state.current_step == 2:
             self.generate_itinerary()
             if st.button("Start Over"):
                 st.session_state.current_step = 0

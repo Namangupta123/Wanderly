@@ -1,7 +1,5 @@
 Streamlit
-fpdf
 groq
 requests
 python-dotenv
-geocoder
 pip
