@@ -43,7 +43,30 @@ class PlacesAPI:
             "London": (51.5074, -0.1278),
             "Tokyo": (35.6762, 139.6503),
             "Paris": (48.8566, 2.3522),
-            # Add more cities as needed
+            "New Delhi": (28.6139, 77.2090),
+            "Mumbai": (19.0760, 72.8777),
+            "Bengaluru": (12.9716, 77.5946),
+            "Uttarakhand": (30.0668, 79.0193),
+            "Bihar": (25.0961, 85.3131),
+            "Uttar Pradesh": (26.8467, 80.9462),
+            "Kolkata": (22.5726, 88.3639),
+            "Stanford": (37.4275, -122.1697),
+            "San Francisco": (37.7749, -122.4194),
+            "Los Angeles": (34.0522, -118.2437),
+            "Chicago": (41.8781, -87.6298),
+            "Houston": (29.7633, -95.3632),
+            "Phoenix": (33.4484, -112.0739),
+            "Philadelphia": (39.9523, -75.1633),
+            "San Diego": (32.7157, -117.1611),
+            "Dallas": (32.7763, -96.7969),
+            "San Jose": (37.3382, -121.8863),
+            "Austin": (30.2672, -97.7431),
+            "Jacksonville": (30.3322, -81.6551),
+            "San Antonio": (29.4241, -98.4937),
+            "Indianapolis": (39.7683, -86.1580),
+            "Columbus": (39.9612, -82.9988),
+            "Fort Worth": (32.7554, -97.3308),
+            "Charlotte": (35.2271, -80.8431)
         }
 
         lat, lon = sample_coordinates.get(city, (0, 0))
