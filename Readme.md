@@ -7,7 +7,7 @@ Wanderly is an intelligent trip planning application that generates a personaliz
 - 🏨 **Accommodation Matching** – Find accommodations that match your preferences from hostels to luxury hotels
 - 🍽️ **Dining & Attractions** – Discover real-time attractions and dining recommendations based on your interests and dietary needs
 - ⏱️ **Activity Planning** – Activities planned according to your walking comfort and mobility preferences
-- 💰 **Budget Optimization** – Suggestions tailored to your selected budget level
+- 💰 **Budget Optimization** – Suggestions tailored to your selected budget
 - 📥 **Downloadable Itineraries** – Save your personalized itinerary as a text file
 
 ## 🛠️ Tech Stack
@@ -26,7 +26,7 @@ streamlit run main.py
 ## 📄 Usage
 1. Select your destinations and preferences.
 2. Generate an optimized itinerary.
-3. Download the PDF for offline access.
+3. Download the text file for offline access.
 
 ## 🤝 Contributing
 Feel free to fork the repository and submit pull requests! Contributions are welcome. 🚀
