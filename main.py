@@ -1,250 +1,183 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
+from groq import Groq
+import json
 from datetime import datetime, timedelta
-import geocoder
+from places_api import PlacesAPI
 
-st.set_page_config(
-    page_title="Wanderly - Smart Trip Planner",
-    page_icon="✈️",
-    layout="wide"
-)
+# Load environment variables
+load_dotenv()
 
-from tools.flights import get_flight_options
-from tools.train import get_train_options
-from tools.food import get_food_recommendations
-from tools.places import get_attractions
-from tools.stay import get_accommodation_options
-from agents.itinerary import generate_itinerary
+# Initialize clients
+groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+places_client = PlacesAPI(api_key=os.getenv('RAPIDAPI_KEY'))
 
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f5f7fa;
-        padding: 20px;
-        border-radius: 10px;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-        padding: 10px 20px;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
-    .header {
-        color: #2c3e50;
-        font-size: 36px;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .subheader {
-        color: #34495e;
-        font-size: 24px;
-        margin-top: 20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
-def init_session_state():
-    defaults = {
-        'itinerary_markdown': None,
-        'step': 1,
-        'transportation_mode': 'flight'
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-init_session_state()
-
-with st.container():
-    st.markdown('<h1 class="header">Wanderly - Smart Trip Planner</h1>', unsafe_allow_html=True)
-
-    if st.session_state.step == 1:
-        st.markdown('<h2 class="subheader">Plan Your Journey</h2>', unsafe_allow_html=True)
+class TravelPlanner:
+    def __init__(self):
+        self.initialize_session_state()
         
-        col1, col2 = st.columns(2)
+    def initialize_session_state(self):
+        """Initialize session state variables"""
+        if 'current_step' not in st.session_state:
+            st.session_state.current_step = 0
+        if 'user_preferences' not in st.session_state:
+            st.session_state.user_preferences = {}
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
+            
+    def get_initial_preferences(self):
+        """Collect basic travel preferences"""
+        st.header("Travel Preferences")
         
-        with col1:
-            departure_city = st.text_input("Departure City", placeholder="e.g., New York, USA", 
-                                        help="Enter your starting city")
-            destination = st.text_input("Destination", placeholder="e.g., Paris, France",
-                                      help="Enter your destination city")
+        with st.form("travel_basics"):
+            destination = st.text_input("Where would you like to go?")
+            start_location = st.text_input("Where will you be traveling from?")
+            start_date = st.date_input("When do you plan to start your trip?")
+            duration = st.number_input("How many days is your trip?", min_value=1, max_value=30, value=7)
+            budget = st.selectbox("What's your budget level?", 
+                                ["Budget", "Mid-range", "Luxury"])
+            purpose = st.multiselect("What's the purpose of your trip?", 
+                                   ["Sightseeing", "Relaxation", "Adventure", "Culture", "Food", "Shopping"])
             
-            today = datetime.now()
-            start_date = st.date_input(
-                "Start Date",
-                min_value=today,
-                value=today + timedelta(days=30),
-                help="Select your trip start date"
-            )
+            submitted = st.form_submit_button("Continue")
             
-            end_date = st.date_input(
-                "End Date",
-                min_value=start_date + timedelta(days=1),
-                value=start_date + timedelta(days=7),
-                help="Select your trip end date"
-            )
-            
-            total_budget = st.number_input(
-                "Total Budget (USD)", 
-                min_value=100.0, 
-                value=1500.0, 
-                step=50.0,
-                help="Set your total trip budget"
-            )
-            
-            st.markdown('<p class="subheader">Budget Breakdown</p>', unsafe_allow_html=True)
-            with st.container():
-                transport_percent = st.slider("Transportation (%)", 5.0, 50.0, 15.0, step=1.0,
-                                            help="Percentage of budget for transportation")
-                accommodation_percent = st.slider("Accommodation (%)", 20.0, 60.0, 40.0, step=1.0,
-                                               help="Percentage of budget for accommodation")
-                food_percent = st.slider("Food & Dining (%)", 10.0, 40.0, 25.0, step=1.0,
-                                       help="Percentage of budget for food")
-                
-                total_percent = transport_percent + accommodation_percent + food_percent
-                if total_percent > 100:
-                    st.error("Budget percentages exceed 100%")
-                    activities_percent = 0.0
-                else:
-                    activities_percent = 100.0 - total_percent
-                
-                transport_budget = total_budget * (transport_percent / 100)
-                accommodation_budget = total_budget * (accommodation_percent / 100)
-                food_budget = total_budget * (food_percent / 100)
-                activities_budget = total_budget * (activities_percent / 100)
-                
-                # Simplified budget display without custom styling
-                st.write(f"Transportation: ${transport_budget:.2f}")
-                st.write(f"Accommodation: ${accommodation_budget:.2f}")
-                st.write(f"Food & Dining: ${food_budget:.2f}")
-                st.write(f"Activities: ${activities_budget:.2f}")
-            
-            transportation_mode = st.radio(
-                "Transportation Mode",
-                ["Flight", "Train"],
-                horizontal=True,
-                help="Choose your preferred transportation"
-            )
-            st.session_state.transportation_mode = transportation_mode.lower()
+            if submitted:
+                st.session_state.user_preferences.update({
+                    'destination': destination,
+                    'start_location': start_location,
+                    'start_date': str(start_date),
+                    'duration': duration,
+                    'budget': budget,
+                    'purpose': purpose
+                })
+                st.session_state.current_step = 1
+                st.rerun()
+
+    def get_detailed_preferences(self):
+        """Collect detailed preferences"""
+        st.header("Additional Preferences")
         
-        with col2:
-            accommodation_preference = st.selectbox(
-                "Accommodation Preference",
-                ["Budget", "Mid-range", "Luxury"],
-                help="Select your accommodation style"
-            )
+        with st.form("detailed_preferences"):
+            dietary = st.multiselect("Dietary Preferences:", 
+                                   ["Vegetarian", "Non-Vegetarian", "Vegan", "Halal", "Kosher", "No restrictions"])
+            interests = st.multiselect("Specific Interests:", 
+                                     ["Museums", "Historical Sites", "Nature", "Local Markets", 
+                                      "Nightlife", "Art Galleries", "Local Cuisine"])
+            mobility = st.select_slider("Walking Comfort (hours per day):", 
+                                      options=[1, 2, 3, 4, 5, 6])
+            accommodation = st.selectbox("Accommodation Preference:", 
+                                       ["Hostel", "Budget Hotel", "Mid-range Hotel", 
+                                        "Luxury Hotel", "Vacation Rental"])
             
-            food_preference = st.selectbox(
-                "Food Preference",
-                ["Local cuisine", "International", "Fine dining", "Street food"],
-                help="Select your dining preference"
-            )
+            submitted = st.form_submit_button("Generate Itinerary")
             
-            activity_preference = st.multiselect(
-                "Activity Preferences",
-                ["Historical sites", "Museums", "Nature", "Adventure", "Shopping", "Relaxation", "Nightlife"],
-                default=["Historical sites", "Museums"],
-                help="Choose your preferred activities"
-            )
-            
-            special_requirements = st.text_area(
-                "Special Requirements",
-                placeholder="e.g., Vegetarian food, accessibility needs, etc.",
-                help="Add any special requirements"
+            if submitted:
+                st.session_state.user_preferences.update({
+                    'dietary': dietary,
+                    'interests': interests,
+                    'mobility': mobility,
+                    'accommodation': accommodation
+                })
+                st.session_state.current_step = 2
+                st.rerun()
+
+    def get_attractions_for_destination(self, destination: str, interests: list) -> str:
+        """Fetch real attractions data using Places API"""
+        attractions_data = places_client.get_attractions(destination, interests)
+        
+        # Format attractions data for the prompt
+        attractions_text = "\nReal-time Attractions Information:\n"
+        for interest, places in attractions_data.items():
+            attractions_text += f"\n{interest.title()} Attractions:\n"
+            for place in places:
+                attractions_text += f"- {place.get('description', 'No description available')}\n"
+        
+        return attractions_text
+
+    def generate_itinerary(self):
+        """Generate and display the travel itinerary"""
+        st.header("Your Personalized Travel Itinerary")
+        
+        # Show loading message while fetching attractions
+        with st.spinner("Fetching real-time attractions data..."):
+            attractions_info = self.get_attractions_for_destination(
+                st.session_state.user_preferences['destination'],
+                st.session_state.user_preferences['interests']
             )
         
-        if st.button("Generate Itinerary", key="generate"):
-            if not departure_city or not destination:
-                st.error("Please enter both departure city and destination")
-            elif start_date >= end_date:
-                st.error("End date must be after start date")
-            elif total_percent > 100:
-                st.error("Please adjust budget percentages to sum to 100% or less")
-            else:
-                with st.spinner("Generating your personalized itinerary..."):
-                    try:
-                        delta = end_date - start_date
-                        num_days = delta.days + 1
-                        
-                        user_preferences = {
-                            "departure_city": departure_city.strip(),
-                            "destination": destination.strip(),
-                            "start_date": start_date.strftime("%Y-%m-%d"),
-                            "end_date": end_date.strftime("%Y-%m-%d"),
-                            "num_days": num_days,
-                            "budget": float(total_budget),
-                            "transport_budget": float(transport_budget),
-                            "accommodation_budget": float(accommodation_budget),
-                            "food_budget": float(food_budget),
-                            "activities_budget": float(activities_budget),
-                            "accommodation": accommodation_preference,
-                            "food": food_preference,
-                            "activities": activity_preference,
-                            "special_requirements": special_requirements.strip(),
-                            "transportation_mode": st.session_state.transportation_mode
-                        }
-                        
-                        transportation_options = (
-                            get_flight_options if st.session_state.transportation_mode == "flight"
-                            else get_train_options
-                        )(departure_city, destination, start_date, transport_budget)
-                        
-                        accommodation_options = get_accommodation_options(
-                            destination, start_date, end_date, accommodation_preference, accommodation_budget
-                        )
-                        
-                        food_recommendations = get_food_recommendations(
-                            destination, food_preference, special_requirements
-                        )
-                        
-                        attractions = get_attractions(
-                            destination, activity_preference, special_requirements
-                        )
-                        
-                        markdown_content = generate_itinerary(
-                            user_preferences, transportation_options, accommodation_options,
-                            food_recommendations, attractions
-                        )
-                        
-                        st.session_state.itinerary_markdown = markdown_content
-                        st.session_state.step = 2
-                        st.rerun()
-                        
-                    except Exception as e:
-                        st.error(f"An error occurred: {str(e)}")
-
-    elif st.session_state.step == 2:
-        markdown_content = st.session_state.itinerary_markdown
-        if not markdown_content:
-            st.error("No itinerary found. Please start over.")
-            st.session_state.step = 1
-            st.rerun()
+        # Convert start date to datetime object
+        start_date = datetime.strptime(st.session_state.user_preferences['start_date'], "%Y-%m-%d")
         
-        st.warning(
-            f"⚠️ The following itinerary is generated by an AI. Please double-check all details, including travel, stay, and activities, as the information may not be 100% accurate or up-to-date."
+        # Generate daily itinerary with specific dates
+        itinerary_dates = []
+        for i in range(st.session_state.user_preferences['duration']):
+            day_date = start_date + timedelta(days=i)
+            itinerary_dates.append(day_date.strftime("%B %d, %Y"))
+
+        # Create the prompt for the AI
+        system_prompt = """You are an expert travel planner. Generate a detailed day-by-day 
+        itinerary based on the user preferences and real-time attractions data. Include:
+        - Daily activities with approximate timings
+        - Recommended restaurants that match dietary preferences
+        - Travel tips and logistics between locations
+        - Estimated costs for activities
+        Use the provided real attractions data to make the itinerary more accurate and current.
+        Format the response in clear markdown with day-by-day breakdown, including specific dates."""
+
+        user_prompt = f"""Create a travel itinerary for:
+        Destination: {st.session_state.user_preferences['destination']}
+        Start Date: {st.session_state.user_preferences['start_date']}
+        Duration: {st.session_state.user_preferences['duration']} days
+        Budget Level: {st.session_state.user_preferences['budget']}
+        Interests: {', '.join(st.session_state.user_preferences['interests'])}
+        Dietary Preferences: {', '.join(st.session_state.user_preferences['dietary'])}
+        Walking Comfort: {st.session_state.user_preferences['mobility']} hours per day
+        Accommodation: {st.session_state.user_preferences['accommodation']}
+
+        {attractions_info}
+
+        Format the itinerary with specific dates, like:
+        Day 1 ({itinerary_dates[0]}): Arrival and Activities
+        Day 2 ({itinerary_dates[1]}): Exploration
+        ..."""
+        
+        # Generate itinerary using Groq
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7
         )
         
-        st.markdown(markdown_content)
+        # Display the itinerary
+        st.markdown(response.choices[0].message.content)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Start Over", key="start_over"):
-                st.session_state.step = 1
-                st.session_state.itinerary_markdown = None
+        # Simplified download button (removed the columns and second button)
+        st.download_button(
+            label="Download Itinerary",
+            data=response.choices[0].message.content,
+            file_name="travel_itinerary.txt",
+            mime="text/plain"
+        )
+
+    def main(self):
+        st.title("AI Travel Planner")
+        
+        if st.session_state.current_step == 0:
+            self.get_initial_preferences()
+        elif st.session_state.current_step == 1:
+            self.get_detailed_preferences()
+        elif st.session_state.current_step == 2:
+            self.generate_itinerary()
+            if st.button("Start Over"):
+                st.session_state.current_step = 0
+                st.session_state.user_preferences = {}
                 st.rerun()
-        
-        with col2:
-            if st.button("Download Itinerary", key="download"):
-                try:
-                    with st.spinner("Generating Text file..."):
-                        st.download_button(
-                            label="Download",
-                            data=markdown_content,
-                            file_name=f"Wanderly_Itinerary_{datetime.now().strftime('%Y%m%d')}.txt",
-                            mime="text/plain",
-                            key="download_button"
-                        )
-                except Exception as e:
-                    st.error(f"Failed to generate PDF: {str(e)}")
+
+if __name__ == "__main__":
+    planner = TravelPlanner()
+    planner.main()
