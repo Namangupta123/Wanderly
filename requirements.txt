@@ -3,4 +3,3 @@ groq
 requests
 pip==25.0.1
 markdown-pdf==1.7
-io
