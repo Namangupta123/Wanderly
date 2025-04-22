@@ -1,7 +1,7 @@
-Streamlit
+Streamlit==1.44.1
 groq
 requests
 python-dotenv
-pip
-markdown-pdf
+pip==25.0.1
+markdown-pdf==17
 io
